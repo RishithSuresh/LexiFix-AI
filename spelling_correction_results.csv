@@ -1,0 +1,4 @@
+input_text,expected_text,detected_errors,baseline_text,baseline_accuracy,llm_text,llm_accuracy,llm_status
+I recieve the mesage from my frend.,I receive the message from my friend.,recieve; mesage; frend,I receive the message from my friend.,1.000,,,not configured
+This is a beautifull and usefull example.,This is a beautiful and useful example.,beautifull; usefull,This is a beautiful and useful example.,1.000,,,not configured
+The quick brown fox jumpd over the lazy dog.,The quick brown fox jumped over the lazy dog.,jumpd,The quick brown fox jumped over the lazy dog.,1.000,,,not configured
