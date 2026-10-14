@@ -24,7 +24,7 @@ come could over much before should through still such where while never right
 world life hand place great little old own same tell does set three high every
 large another become much family point keep last long thing often together
 school group important different home under leave put
-receive message friend beautiful useful example quick brown fox jumped lazy my dog
+receive message friend beautiful useful example quick brown fox jumped lazy my dog text
 """
 
 WORD_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
@@ -155,3 +155,25 @@ def word_accuracy(reference: str, prediction: str) -> float:
     if not expected:
         return 1.0 if not actual else 0.0
     return sum(a == b for a, b in zip(expected, actual)) / len(expected)
+
+
+def correction_metrics(source: str, reference: str, prediction: str) -> dict[str, float]:
+    """Return token-level precision, recall, and F1 for spelling corrections."""
+    source_words = [word.lower() for word in _tokenize(source)]
+    reference_words = [word.lower() for word in _tokenize(reference)]
+    prediction_words = [word.lower() for word in _tokenize(prediction)]
+    length = max(len(source_words), len(reference_words), len(prediction_words))
+    source_words.extend([""] * (length - len(source_words)))
+    reference_words.extend([""] * (length - len(reference_words)))
+    prediction_words.extend([""] * (length - len(prediction_words)))
+    expected_changes = {
+        index for index in range(length) if source_words[index] != reference_words[index]
+    }
+    predicted_changes = {
+        index for index in range(length) if source_words[index] != prediction_words[index]
+    }
+    true_positive = len(expected_changes & predicted_changes)
+    precision = true_positive / len(predicted_changes) if predicted_changes else 1.0
+    recall = true_positive / len(expected_changes) if expected_changes else 1.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    return {"precision": precision, "recall": recall, "f1": f1}

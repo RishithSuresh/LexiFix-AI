@@ -23,11 +23,22 @@ provided:
   --llm-model "google/flan-t5-small"
 ```
 
+For a larger labeled dataset, create a CSV with `input_text` and
+`expected_text` columns and pass it to the runner:
+
+```powershell
+& "C:\Users\rishi\anaconda3\envs\nlp\python.exe" .\run_comparison.py `
+  --cases .\my_cases.csv `
+  --output .\my_results.csv `
+  --max-distance 2
+```
+
 The first LLM run may download model files. Use a local model path for
 offline execution. `baseline_accuracy` and `llm_accuracy` are positional
-word accuracies against the expected text; for a real evaluation, replace the
-sample cases with a labeled benchmark and report correction precision,
-recall, and F1 for misspelled tokens.
+word accuracies against the expected text. The CSV also reports token-level
+correction precision, recall, and F1. These metrics measure whether the system
+changed exactly the tokens that differ between the input and expected text;
+they are more informative than accuracy when false corrections matter.
 
 ## API
 
