@@ -38,6 +38,10 @@ to the recommended correction checkpoint. Clear the field if you want an
 offline baseline-only run. Use **Save result as CSV** to export the current
 comparison.
 
+The interface uses a clean card layout, a restrained color palette, clear
+primary and secondary actions, model-status indicators, and larger readable
+text areas for comparing results.
+
 ```powershell
 & "C:\Users\rishi\anaconda3\envs\nlp\python.exe" .\run_comparison.py
 ```

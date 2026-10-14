@@ -17,6 +17,18 @@ from spelling_correction import (
     NoisyChannelSpellCorrector,
 )
 
+COLORS = {
+    "background": "#f4f7fb",
+    "surface": "#ffffff",
+    "surface_dark": "#eef3f9",
+    "text": "#172033",
+    "muted": "#667085",
+    "primary": "#2563eb",
+    "primary_dark": "#1d4ed8",
+    "success": "#15803d",
+    "border": "#d9e2ef",
+}
+
 
 class LexiFixApp(tk.Tk):
     """Main window that connects the user interface to the correction models."""
@@ -24,13 +36,63 @@ class LexiFixApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("LexiFix AI - Spelling Correction")
-        self.geometry("1100x760")
-        self.minsize(850, 600)
+        self.geometry("1180x820")
+        self.minsize(900, 680)
+        self.configure(background=COLORS["background"])
+        self._configure_theme()
 
         self.baseline = NoisyChannelSpellCorrector()
         self.llm: LLMCorrector | None = None
         self.last_result: dict[str, str] | None = None
         self._build_widgets()
+
+    def _configure_theme(self) -> None:
+        """Define a restrained visual theme using only Tkinter primitives."""
+        style = ttk.Style(self)
+        style.theme_use("clam")
+        style.configure(
+            "App.TFrame",
+            background=COLORS["background"],
+        )
+        style.configure(
+            "Card.TLabelframe",
+            background=COLORS["surface"],
+            bordercolor=COLORS["border"],
+            lightcolor=COLORS["border"],
+            darkcolor=COLORS["border"],
+            relief="solid",
+            borderwidth=1,
+        )
+        style.configure(
+            "Card.TLabelframe.Label",
+            background=COLORS["surface"],
+            foreground=COLORS["text"],
+            font=("Segoe UI", 10, "bold"),
+        )
+        style.configure(
+            "Primary.TButton",
+            background=COLORS["primary"],
+            foreground="white",
+            borderwidth=0,
+            font=("Segoe UI", 10, "bold"),
+            padding=(16, 9),
+        )
+        style.map(
+            "Primary.TButton",
+            background=[("active", COLORS["primary_dark"]), ("disabled", "#9db5e8")],
+        )
+        style.configure(
+            "Secondary.TButton",
+            background=COLORS["surface_dark"],
+            foreground=COLORS["text"],
+            borderwidth=0,
+            padding=(12, 9),
+        )
+        style.configure(
+            "App.TLabel",
+            background=COLORS["background"],
+            foreground=COLORS["text"],
+        )
 
     def _build_widgets(self) -> None:
         """Create the layout and keep the controls grouped by workflow."""
@@ -38,36 +100,70 @@ class LexiFixApp(tk.Tk):
         self.rowconfigure(2, weight=1)
         self.rowconfigure(4, weight=1)
 
-        header = ttk.Frame(self, padding=16)
+        header = ttk.Frame(self, padding=(28, 24, 28, 16), style="App.TFrame")
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
         ttk.Label(
             header,
             text="LexiFix AI",
-            font=("Segoe UI", 22, "bold"),
+            font=("Segoe UI", 26, "bold"),
+            foreground=COLORS["text"],
+            background=COLORS["background"],
         ).grid(row=0, column=0, sticky="w")
         ttk.Label(
             header,
             text="Detect, correct, and compare spelling with Python NLP and an optional LLM.",
-        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+        ).grid(row=1, column=0, sticky="w", pady=(5, 0))
+        ttk.Label(
+            header,
+            text="SPELLING INTELLIGENCE",
+            foreground=COLORS["primary"],
+            background=COLORS["background"],
+            font=("Segoe UI", 9, "bold"),
+        ).grid(row=0, column=1, sticky="e")
 
-        options = ttk.LabelFrame(self, text="Model settings", padding=10)
-        options.grid(row=1, column=0, padx=16, sticky="ew")
+        options = ttk.LabelFrame(
+            self, text="  Model settings  ", padding=(16, 12), style="Card.TLabelframe"
+        )
+        options.grid(row=1, column=0, padx=28, sticky="ew")
         options.columnconfigure(1, weight=1)
-        ttk.Label(options, text="LLM model (optional):").grid(row=0, column=0, sticky="w")
+        ttk.Label(options, text="LLM model (optional):", style="App.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
         self.model_var = tk.StringVar(value="vennify/t5-base-grammar-correction")
         ttk.Entry(options, textvariable=self.model_var).grid(
             row=0, column=1, sticky="ew", padx=8
         )
-        ttk.Label(options, text="The first LLM run may download the model.").grid(
-            row=0, column=2, sticky="w"
+        ttk.Label(
+            options,
+            text="●  Ready to compare",
+            foreground=COLORS["success"],
+            background=COLORS["surface"],
+            font=("Segoe UI", 9, "bold"),
+        ).grid(
+            row=0, column=2, sticky="w", padx=(12, 0)
         )
 
-        input_frame = ttk.LabelFrame(self, text="Input text", padding=10)
-        input_frame.grid(row=2, column=0, padx=16, pady=(12, 8), sticky="nsew")
+        input_frame = ttk.LabelFrame(
+            self, text="  Input text  ", padding=(16, 14), style="Card.TLabelframe"
+        )
+        input_frame.grid(row=2, column=0, padx=28, pady=(16, 10), sticky="nsew")
         input_frame.columnconfigure(0, weight=1)
         input_frame.rowconfigure(0, weight=1)
-        self.input_text = tk.Text(input_frame, height=8, wrap="word", undo=True)
+        self.input_text = tk.Text(
+            input_frame,
+            height=8,
+            wrap="word",
+            undo=True,
+            font=("Segoe UI", 11),
+            padx=10,
+            pady=10,
+            relief="flat",
+            borderwidth=0,
+            background="#fbfcfe",
+            foreground=COLORS["text"],
+            insertbackground=COLORS["primary"],
+        )
         self.input_text.grid(row=0, column=0, sticky="nsew")
         self.input_text.insert(
             "1.0",
@@ -79,45 +175,81 @@ class LexiFixApp(tk.Tk):
         input_scroll.grid(row=0, column=1, sticky="ns")
         self.input_text.configure(yscrollcommand=input_scroll.set)
 
-        actions = ttk.Frame(self, padding=(16, 0))
+        actions = ttk.Frame(self, padding=(28, 2, 28, 8), style="App.TFrame")
         actions.grid(row=3, column=0, sticky="ew")
         self.correct_button = ttk.Button(
-            actions, text="Correct and compare", command=self._start_correction
+            actions, text="✦  Correct and compare", command=self._start_correction,
+            style="Primary.TButton"
         )
         self.correct_button.pack(side="left")
-        ttk.Button(actions, text="Clear", command=self._clear).pack(side="left", padx=8)
-        ttk.Button(actions, text="Save result as CSV", command=self._save_csv).pack(
+        ttk.Button(actions, text="Clear", command=self._clear, style="Secondary.TButton").pack(
+            side="left", padx=8
+        )
+        ttk.Button(
+            actions, text="Save result as CSV", command=self._save_csv,
+            style="Secondary.TButton"
+        ).pack(
             side="left"
         )
-        self.status_var = tk.StringVar(value="Ready")
-        ttk.Label(actions, textvariable=self.status_var).pack(side="right")
+        self.status_var = tk.StringVar(value="●  Ready")
+        ttk.Label(
+            actions, textvariable=self.status_var, foreground=COLORS["muted"],
+            background=COLORS["background"], font=("Segoe UI", 9, "bold")
+        ).pack(side="right")
 
-        output = ttk.Frame(self, padding=16)
+        output = ttk.Frame(self, padding=(28, 4, 28, 0), style="App.TFrame")
         output.grid(row=4, column=0, sticky="nsew")
         output.columnconfigure(0, weight=1)
         output.columnconfigure(1, weight=1)
         output.rowconfigure(1, weight=1)
-        ttk.Label(output, text="Python NLP baseline", font=("Segoe UI", 11, "bold")).grid(
+        ttk.Label(
+            output, text="  PYTHON NLP BASELINE", font=("Segoe UI", 10, "bold"),
+            foreground=COLORS["primary"], background=COLORS["background"]
+        ).grid(
             row=0, column=0, sticky="w"
         )
-        ttk.Label(output, text="LLM correction", font=("Segoe UI", 11, "bold")).grid(
+        ttk.Label(
+            output, text="  LLM CORRECTION", font=("Segoe UI", 10, "bold"),
+            foreground=COLORS["primary"], background=COLORS["background"]
+        ).grid(
             row=0, column=1, sticky="w", padx=(12, 0)
         )
         self.baseline_output = self._make_output_box(output, 0)
         self.llm_output = self._make_output_box(output, 1)
 
-        self.details_var = tk.StringVar(value="Run a correction to see detected errors and metrics.")
+        self.baseline_meta_var = tk.StringVar(value="Deterministic • Offline")
+        self.llm_meta_var = tk.StringVar(value="Optional • Model not run")
         ttk.Label(
-            self, textvariable=self.details_var, padding=(16, 0, 16, 12), wraplength=1050
+            output, textvariable=self.baseline_meta_var, foreground=COLORS["muted"],
+            background=COLORS["background"], font=("Segoe UI", 9)
+        ).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(
+            output, textvariable=self.llm_meta_var, foreground=COLORS["muted"],
+            background=COLORS["background"], font=("Segoe UI", 9)
+        ).grid(row=2, column=1, sticky="w", padx=(12, 0), pady=(6, 0))
+        self.details_var = tk.StringVar(
+            value="Run a correction to see detected errors and model details."
+        )
+        ttk.Label(
+            self, textvariable=self.details_var, padding=(28, 12, 28, 18),
+            wraplength=1120, foreground=COLORS["muted"],
+            background=COLORS["background"], font=("Segoe UI", 9)
         ).grid(row=5, column=0, sticky="w")
 
     def _make_output_box(self, parent: ttk.Frame, column: int) -> tk.Text:
         """Create one read-only-looking text area for a model result."""
-        frame = ttk.Frame(parent)
+        frame = tk.Frame(
+            parent, background=COLORS["surface"], highlightbackground=COLORS["border"],
+            highlightthickness=1, bd=0
+        )
         frame.grid(row=1, column=column, sticky="nsew", padx=(0 if column == 0 else 12, 0))
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(0, weight=1)
-        text = tk.Text(frame, height=10, wrap="word", state="disabled")
+        text = tk.Text(
+            frame, height=10, wrap="word", state="disabled",
+            font=("Segoe UI", 11), padx=12, pady=12, relief="flat", bd=0,
+            background=COLORS["surface"], foreground=COLORS["text"],
+        )
         text.grid(row=0, column=0, sticky="nsew")
         scroll = ttk.Scrollbar(frame, orient="vertical", command=text.yview)
         scroll.grid(row=0, column=1, sticky="ns")
@@ -139,7 +271,7 @@ class LexiFixApp(tk.Tk):
             return
         model_name = self.model_var.get().strip()
         self.correct_button.configure(state="disabled")
-        self.status_var.set("Running baseline correction...")
+        self.status_var.set("●  Processing...")
         threading.Thread(
             target=self._correct_in_background,
             args=(source, model_name),
@@ -194,12 +326,19 @@ class LexiFixApp(tk.Tk):
         else:
             details += "\nLLM status: not configured."
         self.details_var.set(details)
-        self.status_var.set("Completed")
+        self.status_var.set("●  Completed")
+        self.baseline_meta_var.set(
+            f"Deterministic • {len(result['detected_errors'].split('; ')) if result['detected_errors'] else 0} corrections"
+        )
+        self.llm_meta_var.set(
+            "Optional • Completed" if result["llm_status"] == "ok"
+            else "Optional • Not configured"
+        )
         self.correct_button.configure(state="normal")
 
     def _show_error(self, message: str) -> None:
         """Show an actionable model error and restore the button."""
-        self.status_var.set("Error")
+        self.status_var.set("●  Error")
         self.correct_button.configure(state="normal")
         messagebox.showerror("Correction failed", message)
 
@@ -208,8 +347,10 @@ class LexiFixApp(tk.Tk):
         self.input_text.delete("1.0", "end")
         self._set_output(self.baseline_output, "")
         self._set_output(self.llm_output, "")
-        self.details_var.set("Run a correction to see detected errors and metrics.")
-        self.status_var.set("Ready")
+        self.details_var.set("Run a correction to see detected errors and model details.")
+        self.baseline_meta_var.set("Deterministic • Offline")
+        self.llm_meta_var.set("Optional • Model not run")
+        self.status_var.set("●  Ready")
         self.last_result = None
 
     def _save_csv(self) -> None:
