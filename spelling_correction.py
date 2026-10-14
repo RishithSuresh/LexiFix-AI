@@ -1,7 +1,9 @@
-"""Spelling detection and correction with a lightweight noisy-channel model.
+"""Spelling detection and correction components used by the CLI.
 
-The baseline uses word frequencies and edit distance. It has no model download
-requirement, making it suitable for repeatable offline experiments.
+The offline baseline follows a simple noisy-channel idea: a misspelled word is
+likely to be close to a valid word, and common valid words are preferred when
+several candidates have the same edit distance. The implementation is small
+enough to understand and deterministic enough to benchmark.
 """
 
 from __future__ import annotations
@@ -55,6 +57,8 @@ def _edit_distance(left: str, right: str) -> int:
 
 @dataclass(frozen=True)
 class Correction:
+    """The decision made for one token in the input text."""
+
     original: str
     corrected: str
     distance: int
@@ -62,7 +66,12 @@ class Correction:
 
 
 class NoisyChannelSpellCorrector:
-    """Detect out-of-vocabulary words and choose likely corrections."""
+    """Detect out-of-vocabulary words and choose likely corrections.
+
+    ``vocabulary`` is useful for applications with a domain dictionary
+    (medical, legal, or product-specific terms). When it is omitted, words
+    are learned from ``corpus``.
+    """
 
     def __init__(
         self,
@@ -71,8 +80,14 @@ class NoisyChannelSpellCorrector:
         vocabulary: Iterable[str] | None = None,
         max_distance: int = 2,
     ) -> None:
+        # A negative distance would make the candidate filter meaningless and
+        # usually indicates a configuration error, so reject it early.
+        if max_distance < 0:
+            raise ValueError("max_distance must be zero or greater.")
         words = vocabulary if vocabulary is not None else _tokenize(corpus if isinstance(corpus, str) else " ".join(corpus))
         self.frequencies = Counter(word.lower() for word in words if word.isalpha())
+        if not self.frequencies:
+            raise ValueError("The corpus or vocabulary must contain at least one word.")
         self.max_distance = max_distance
         self.vocabulary = frozenset(self.frequencies)
 
@@ -84,12 +99,16 @@ class NoisyChannelSpellCorrector:
         ))
 
     def _candidates(self, word: str) -> list[tuple[str, int]]:
-        return [
-            (candidate, _edit_distance(word, candidate))
-            for candidate in self.vocabulary
-            if abs(len(candidate) - len(word)) <= self.max_distance
-            and _edit_distance(word, candidate) <= self.max_distance
-        ]
+        candidates: list[tuple[str, int]] = []
+        for candidate in self.vocabulary:
+            # Length difference is a cheap lower bound, so skip impossible
+            # candidates before calculating the more expensive edit distance.
+            if abs(len(candidate) - len(word)) > self.max_distance:
+                continue
+            distance = _edit_distance(word, candidate)
+            if distance <= self.max_distance:
+                candidates.append((candidate, distance))
+        return candidates
 
     def correct_word(self, word: str) -> Correction:
         normalized = word.lower()
@@ -98,9 +117,12 @@ class NoisyChannelSpellCorrector:
         candidates = self._candidates(normalized)
         if not candidates:
             return Correction(word, word, -1, 0.0)
+        # Distance is the primary signal; frequency breaks ties consistently.
         candidates.sort(key=lambda item: (item[1], -self.frequencies[item[0]], item[0]))
         best, distance = candidates[0]
         total = sum(self.frequencies.values()) or 1
+        # This is a relative heuristic, not a calibrated probability. It is
+        # still useful to downstream callers for filtering low-confidence edits.
         confidence = (1 / (1 + distance)) * (self.frequencies[best] / total + 0.5)
         if word.istitle():
             best = best.title()
@@ -112,6 +134,8 @@ class NoisyChannelSpellCorrector:
         corrections: list[Correction] = []
 
         def replace(match: re.Match[str]) -> str:
+            # re.sub preserves all text outside matched words, including
+            # punctuation, whitespace, numbers, and line breaks.
             token = match.group(0)
             correction = self.correct_word(token)
             corrections.append(correction)
@@ -133,11 +157,14 @@ class LLMCorrector:
 
     def correct(self, text: str) -> str:
         if self._pipeline is None:
+            # Lazy loading keeps the offline baseline fast and avoids a model
+            # download when the user did not request an LLM comparison.
             try:
                 pipeline = getattr(import_module("transformers"), "pipeline")
             except (ImportError, AttributeError) as exc:
                 raise RuntimeError("Install transformers to use the LLM corrector.") from exc
             self._pipeline = pipeline("text2text-generation", model=self.model_name)
+        # Deterministic generation makes repeated benchmark runs comparable.
         result = self._pipeline(
             f"Correct the spelling only. Preserve meaning and punctuation: {text}",
             max_new_tokens=max(32, len(text.split()) * 3),
@@ -158,7 +185,12 @@ def word_accuracy(reference: str, prediction: str) -> float:
 
 
 def correction_metrics(source: str, reference: str, prediction: str) -> dict[str, float]:
-    """Return token-level precision, recall, and F1 for spelling corrections."""
+    """Return token-level precision, recall, and F1 for spelling corrections.
+
+    A correction is a token whose value changes from the noisy source. This
+    measures whether a system changed the right words, rather than only
+    measuring whether the final sentence happens to match.
+    """
     source_words = [word.lower() for word in _tokenize(source)]
     reference_words = [word.lower() for word in _tokenize(reference)]
     prediction_words = [word.lower() for word in _tokenize(prediction)]

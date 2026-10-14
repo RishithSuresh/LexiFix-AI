@@ -41,3 +41,20 @@ def test_correction_metrics_penalize_false_corrections():
     assert metrics["precision"] == 0.0
     assert metrics["recall"] == 1.0
     assert metrics["f1"] == 0.0
+
+
+def test_invalid_configuration_is_rejected():
+    try:
+        NoisyChannelSpellCorrector(vocabulary=["word"], max_distance=-1)
+    except ValueError as error:
+        assert "max_distance" in str(error)
+    else:
+        raise AssertionError("Negative max_distance should raise ValueError")
+
+
+def test_unmatched_word_is_left_unchanged():
+    checker = NoisyChannelSpellCorrector(vocabulary=["hello"], max_distance=1)
+    correction = checker.correct_word("zzzz")
+    assert correction.corrected == "zzzz"
+    assert correction.distance == -1
+    assert correction.confidence == 0.0
