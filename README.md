@@ -24,6 +24,20 @@ This project compares two spelling-correction approaches:
 
 ## Run
 
+### Desktop interface
+
+The easiest way to use LexiFix AI is the Tkinter desktop application:
+
+```powershell
+& "C:\Users\rishi\anaconda3\envs\nlp\python.exe" .\app.py
+```
+
+Paste text into the input box, click **Correct and compare**, and inspect the
+Python NLP baseline beside the optional LLM result. The model field defaults
+to the recommended correction checkpoint. Clear the field if you want an
+offline baseline-only run. Use **Save result as CSV** to export the current
+comparison.
+
 ```powershell
 & "C:\Users\rishi\anaconda3\envs\nlp\python.exe" .\run_comparison.py
 ```
@@ -81,6 +95,7 @@ calibrated probability.
 LexiFix AI/
 ├── spelling_correction.py       # NLP and LLM correction components
 ├── run_comparison.py            # CLI runner and CSV evaluation
+├── app.py                       # Tkinter desktop user interface
 ├── my_cases.csv                 # Example labeled input
 ├── spelling_correction_results.csv
 ├── tests/test_spelling_correction.py
