@@ -1,0 +1,4 @@
+system,accuracy,precision,recall,f1
+baseline,1.000,1.000,1.000,1.000
+vennify/t5-base-grammar-correction,0.915,1.000,1.000,1.000
+google/flan-t5-small,0.323,0.542,0.667,0.296

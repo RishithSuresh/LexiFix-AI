@@ -151,8 +151,9 @@ class LLMCorrector:
     spelling correction, such as ``vennify/t5-base-grammar-correction``.
     """
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, task_prefix: str = "grammar:") -> None:
         self.model_name = model_name
+        self.task_prefix = task_prefix
         self._pipeline = None
 
     def correct(self, text: str) -> str:
@@ -164,11 +165,12 @@ class LLMCorrector:
             except (ImportError, AttributeError) as exc:
                 raise RuntimeError("Install transformers to use the LLM corrector.") from exc
             self._pipeline = pipeline("text2text-generation", model=self.model_name)
-        # The ``grammar:`` task prefix is part of the training convention for
-        # the recommended checkpoint and produces much better corrections than
-        # a generic instruction prompt.
+        # Correction checkpoints can use different task prefixes. The
+        # recommended T5 grammar model expects ``grammar:``; generic models
+        # can be tested with an empty prefix.
+        prompt = f"{self.task_prefix} {text}".strip()
         result = self._pipeline(
-            f"grammar: {text}",
+            prompt,
             max_new_tokens=max(32, len(text.split()) * 3),
             do_sample=False,
         )

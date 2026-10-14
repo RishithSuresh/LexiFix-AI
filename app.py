@@ -17,6 +17,12 @@ from spelling_correction import (
     NoisyChannelSpellCorrector,
 )
 
+MODEL_OPTIONS = (
+    "vennify/t5-base-grammar-correction",
+    "vennify/t5-small-grammar-correction",
+    "google/flan-t5-small",
+)
+
 COLORS = {
     "background": "#f4f7fb",
     "surface": "#ffffff",
@@ -42,7 +48,7 @@ class LexiFixApp(tk.Tk):
         self._configure_theme()
 
         self.baseline = NoisyChannelSpellCorrector()
-        self.llm: LLMCorrector | None = None
+        self.llms: dict[str, LLMCorrector] = {}
         self.last_result: dict[str, str] | None = None
         self._build_widgets()
 
@@ -127,22 +133,38 @@ class LexiFixApp(tk.Tk):
         )
         options.grid(row=1, column=0, padx=28, sticky="ew")
         options.columnconfigure(1, weight=1)
-        ttk.Label(options, text="LLM model (optional):", style="App.TLabel").grid(
+        ttk.Label(options, text="Compare models:", style="App.TLabel").grid(
             row=0, column=0, sticky="w"
         )
-        self.model_var = tk.StringVar(value="vennify/t5-base-grammar-correction")
-        ttk.Entry(options, textvariable=self.model_var).grid(
-            row=0, column=1, sticky="ew", padx=8
+        self.model_list = tk.Listbox(
+            options, height=3, selectmode="multiple", exportselection=False,
+            font=("Segoe UI", 9), relief="flat", bd=0,
+            background="#fbfcfe", foreground=COLORS["text"],
         )
+        self.model_list.grid(row=0, column=1, sticky="ew", padx=8)
+        for model in MODEL_OPTIONS:
+            self.model_list.insert("end", model)
+        self.model_list.selection_set(0, 1)
         ttk.Label(
             options,
-            text="●  Ready to compare",
+            text="Select one or more\nmodels to compare",
             foreground=COLORS["success"],
             background=COLORS["surface"],
             font=("Segoe UI", 9, "bold"),
         ).grid(
             row=0, column=2, sticky="w", padx=(12, 0)
         )
+        ttk.Label(options, text="Custom model (optional):", style="App.TLabel").grid(
+            row=1, column=0, sticky="w", pady=(10, 0)
+        )
+        self.custom_model_var = tk.StringVar()
+        ttk.Entry(options, textvariable=self.custom_model_var).grid(
+            row=1, column=1, sticky="ew", padx=8, pady=(10, 0)
+        )
+        ttk.Label(
+            options, text="Leave blank to use presets", foreground=COLORS["muted"],
+            background=COLORS["surface"], font=("Segoe UI", 9)
+        ).grid(row=1, column=2, sticky="w", padx=(12, 0), pady=(10, 0))
 
         input_frame = ttk.LabelFrame(
             self, text="  Input text  ", padding=(16, 14), style="Card.TLabelframe"
@@ -269,26 +291,34 @@ class LexiFixApp(tk.Tk):
         if not source:
             messagebox.showwarning("Input required", "Enter text to correct first.")
             return
-        model_name = self.model_var.get().strip()
+        selected = [self.model_list.get(index) for index in self.model_list.curselection()]
+        custom_model = self.custom_model_var.get().strip()
+        if custom_model and custom_model not in selected:
+            selected.append(custom_model)
         self.correct_button.configure(state="disabled")
         self.status_var.set("●  Processing...")
         threading.Thread(
             target=self._correct_in_background,
-            args=(source, model_name),
+            args=(source, selected),
             daemon=True,
         ).start()
 
-    def _correct_in_background(self, source: str, model_name: str) -> None:
+    def _correct_in_background(self, source: str, model_names: list[str]) -> None:
         """Run correction without freezing the window during an LLM download."""
         try:
             baseline_text, corrections = self.baseline.correct(source)
-            llm_text = ""
-            llm_status = "not configured"
-            if model_name:
-                if self.llm is None or self.llm.model_name != model_name:
-                    self.llm = LLMCorrector(model_name)
-                llm_text = self.llm.correct(source)
-                llm_status = "ok"
+            llm_outputs: list[str] = []
+            statuses: list[str] = []
+            for model_name in model_names:
+                if model_name not in self.llms:
+                    self.llms[model_name] = LLMCorrector(model_name)
+                try:
+                    llm_outputs.append(
+                        f"[{model_name}]\n{self.llms[model_name].correct(source)}"
+                    )
+                    statuses.append(f"{model_name}: ok")
+                except (RuntimeError, OSError, ValueError) as error:
+                    statuses.append(f"{model_name}: error: {error}")
             result = {
                 "input_text": source,
                 "expected_text": "",
@@ -300,12 +330,12 @@ class LexiFixApp(tk.Tk):
                 "baseline_precision": "",
                 "baseline_recall": "",
                 "baseline_f1": "",
-                "llm_text": llm_text,
+                "llm_text": "\n\n".join(llm_outputs),
                 "llm_accuracy": "",
                 "llm_precision": "",
                 "llm_recall": "",
                 "llm_f1": "",
-                "llm_status": llm_status,
+                "llm_status": "; ".join(statuses) if statuses else "not configured",
             }
             self.after(0, self._show_result, result)
         except (RuntimeError, OSError, ValueError) as error:

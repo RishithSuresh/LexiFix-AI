@@ -33,10 +33,10 @@ The easiest way to use LexiFix AI is the Tkinter desktop application:
 ```
 
 Paste text into the input box, click **Correct and compare**, and inspect the
-Python NLP baseline beside the optional LLM result. The model field defaults
-to the recommended correction checkpoint. Clear the field if you want an
-offline baseline-only run. Use **Save result as CSV** to export the current
-comparison.
+Python NLP baseline beside one or more LLM results. Select multiple presets
+in the model list, or enter a custom Hugging Face model identifier. Leave all
+LLM choices unselected for an offline baseline-only run. Use **Save result as
+CSV** to export the current comparison.
 
 The interface uses a clean card layout, a restrained color palette, clear
 primary and secondary actions, model-status indicators, and larger readable
@@ -60,6 +60,24 @@ Use a model trained for correction rather than a general instruction model
 such as `google/flan-t5-small`; general models often copy misspellings instead
 of correcting them. The recommended checkpoint uses the `grammar:` task
 prefix internally.
+
+### Compare multiple models from PowerShell
+
+```powershell
+& "C:\Users\rishi\anaconda3\envs\nlp\python.exe" .\run_comparison.py `
+  --cases .\my_cases.csv `
+  --llm-models `
+    "vennify/t5-base-grammar-correction" `
+    "vennify/t5-small-grammar-correction" `
+    "google/flan-t5-small" `
+  --output .\multi_model_results.csv `
+  --summary-output .\multi_model_summary.csv
+```
+
+The detailed CSV contains separate columns for each model, for example
+`model_vennify_t5_base_grammar_correction_f1`. The summary CSV contains the mean baseline metrics plus one row per selected
+model. Models may require a one-time download from
+Hugging Face; a local model directory can be supplied instead.
 
 For a larger labeled dataset, create a CSV with `input_text` and
 `expected_text` columns and pass it to the runner:
