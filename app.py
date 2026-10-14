@@ -24,15 +24,17 @@ MODEL_OPTIONS = (
 )
 
 COLORS = {
-    "background": "#f4f7fb",
-    "surface": "#ffffff",
-    "surface_dark": "#eef3f9",
-    "text": "#172033",
-    "muted": "#667085",
-    "primary": "#2563eb",
-    "primary_dark": "#1d4ed8",
-    "success": "#15803d",
-    "border": "#d9e2ef",
+    "background": "#0b1120",
+    "sidebar": "#111a2e",
+    "surface": "#151f35",
+    "surface_dark": "#1d2942",
+    "text": "#f4f7ff",
+    "muted": "#8e9bb5",
+    "primary": "#7c6cff",
+    "primary_dark": "#6657e8",
+    "success": "#39d98a",
+    "border": "#263452",
+    "input": "#10192c",
 }
 
 
@@ -101,23 +103,108 @@ class LexiFixApp(tk.Tk):
             background=COLORS["background"],
             foreground=COLORS["text"],
         )
+        style.configure(
+            "Treeview",
+            background=COLORS["surface"],
+            fieldbackground=COLORS["surface"],
+            foreground=COLORS["text"],
+            rowheight=30,
+            borderwidth=0,
+            font=("Segoe UI", 9),
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=COLORS["surface_dark"],
+            foreground=COLORS["text"],
+            relief="flat",
+            font=("Segoe UI", 9, "bold"),
+        )
+        style.map(
+            "Treeview",
+            background=[("selected", COLORS["primary"])],
+            foreground=[("selected", "white")],
+        )
 
     def _build_widgets(self) -> None:
-        """Create the layout and keep the controls grouped by workflow."""
+        """Create the branded shell and switchable product views."""
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(2, weight=1)
-        self.rowconfigure(4, weight=1)
+        self.rowconfigure(0, weight=1)
 
-        self.notebook = ttk.Notebook(self)
-        self.notebook.grid(row=0, column=0, rowspan=6, sticky="nsew")
-        self.notebook.columnconfigure(0, weight=1)
-        self.notebook.rowconfigure(0, weight=1)
-        correction_tab = ttk.Frame(self.notebook, style="App.TFrame")
-        csv_tab = ttk.Frame(self.notebook, style="App.TFrame")
-        self.notebook.add(correction_tab, text="  Correction workspace  ")
-        self.notebook.add(csv_tab, text="  CSV comparisons  ")
+        shell = tk.Frame(self, background=COLORS["background"])
+        shell.grid(row=0, column=0, sticky="nsew")
+        shell.columnconfigure(1, weight=1)
+        shell.rowconfigure(0, weight=1)
+
+        sidebar = tk.Frame(shell, background=COLORS["sidebar"], width=230)
+        sidebar.grid(row=0, column=0, sticky="nsew")
+        sidebar.grid_propagate(False)
+        ttk.Label(
+            sidebar, text="LEXIFIX", foreground=COLORS["primary"],
+            background=COLORS["sidebar"], font=("Segoe UI", 18, "bold"),
+        ).pack(anchor="w", padx=24, pady=(32, 2))
+        ttk.Label(
+            sidebar, text="AI SPELLING STUDIO", foreground=COLORS["muted"],
+            background=COLORS["sidebar"], font=("Segoe UI", 8, "bold"),
+        ).pack(anchor="w", padx=25, pady=(0, 40))
+
+        self.nav_buttons: dict[str, tk.Button] = {}
+        self._add_nav_button(sidebar, "workspace", "Correction workspace", "01")
+        self._add_nav_button(sidebar, "csv", "Comparison results", "02")
+        tk.Frame(sidebar, background=COLORS["border"], height=1).pack(
+            fill="x", padx=24, pady=28
+        )
+        ttk.Label(
+            sidebar, text="LOCAL & EXPLAINABLE", foreground=COLORS["muted"],
+            background=COLORS["sidebar"], font=("Segoe UI", 8, "bold"),
+        ).pack(anchor="w", padx=25)
+        ttk.Label(
+            sidebar,
+            text="Offline baseline\nOptional Transformer models\nCSV-ready evaluation",
+            foreground="#b7c2d9", background=COLORS["sidebar"],
+            font=("Segoe UI", 9), justify="left",
+        ).pack(anchor="w", padx=25, pady=(10, 0))
+        ttk.Label(
+            sidebar, text="v1.0  •  LexiFix AI", foreground="#596984",
+            background=COLORS["sidebar"], font=("Segoe UI", 8),
+        ).pack(side="bottom", anchor="w", padx=25, pady=24)
+
+        content = tk.Frame(shell, background=COLORS["background"])
+        content.grid(row=0, column=1, sticky="nsew")
+        content.columnconfigure(0, weight=1)
+        content.rowconfigure(0, weight=1)
+        self.view_container = content
+        correction_tab = tk.Frame(content, background=COLORS["background"])
+        csv_tab = tk.Frame(content, background=COLORS["background"])
+        self.views = {"workspace": correction_tab, "csv": csv_tab}
+        for view in self.views.values():
+            view.grid(row=0, column=0, sticky="nsew")
         self._build_correction_tab(correction_tab)
         self._build_csv_tab(csv_tab)
+        self._show_view("workspace")
+
+    def _add_nav_button(self, parent: tk.Frame, key: str, label: str, number: str) -> None:
+        """Add a custom navigation control instead of a native tab strip."""
+        button = tk.Button(
+            parent, text=f"  {number}    {label}", anchor="w",
+            command=lambda: self._show_view(key),
+            background=COLORS["sidebar"], foreground=COLORS["muted"],
+            activebackground=COLORS["surface_dark"], activeforeground=COLORS["text"],
+            relief="flat", bd=0, padx=16, pady=12,
+            font=("Segoe UI", 10), cursor="hand2",
+        )
+        button.pack(fill="x", padx=12, pady=3)
+        self.nav_buttons[key] = button
+
+    def _show_view(self, key: str) -> None:
+        """Raise a product view and highlight its navigation item."""
+        self.views[key].tkraise()
+        for name, button in self.nav_buttons.items():
+            active = name == key
+            button.configure(
+                background=COLORS["surface_dark"] if active else COLORS["sidebar"],
+                foreground=COLORS["text"] if active else COLORS["muted"],
+                font=("Segoe UI", 10, "bold") if active else ("Segoe UI", 10),
+            )
 
     def _build_correction_tab(self, parent: ttk.Frame) -> None:
         """Build the text correction workspace inside the first tab."""
@@ -138,6 +225,9 @@ class LexiFixApp(tk.Tk):
         ttk.Label(
             header,
             text="Detect, correct, and compare spelling with Python NLP and an optional LLM.",
+            foreground=COLORS["muted"],
+            background=COLORS["background"],
+            font=("Segoe UI", 10),
         ).grid(row=1, column=0, sticky="w", pady=(5, 0))
         ttk.Label(
             header,
@@ -201,7 +291,7 @@ class LexiFixApp(tk.Tk):
             pady=10,
             relief="flat",
             borderwidth=0,
-            background="#fbfcfe",
+            background=COLORS["input"],
             foreground=COLORS["text"],
             insertbackground=COLORS["primary"],
         )
@@ -511,7 +601,7 @@ class LexiFixApp(tk.Tk):
             writer.writeheader()
             writer.writerow(self.last_result)
         self._load_csv(Path(path))
-        self.notebook.select(1)
+        self._show_view("csv")
         self.status_var.set(f"Saved: {Path(path).name}")
 
 
