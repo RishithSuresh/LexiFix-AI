@@ -38,6 +38,12 @@ in the model list, or enter a custom Hugging Face model identifier. Leave all
 LLM choices unselected for an offline baseline-only run. Use **Save result as
 CSV** to export the current comparison.
 
+Open the **CSV comparisons** tab to inspect generated result files in a
+scrollable table. The tab automatically loads the latest available comparison
+file (`multi_model_results.csv`, `llm_comparison_results.csv`,
+`my_results.csv`, or `spelling_correction_results.csv`). Use **Open CSV file**
+to select another result file, or **Refresh** after running a CLI comparison.
+
 The interface uses a clean card layout, a restrained color palette, clear
 primary and secondary actions, model-status indicators, and larger readable
 text areas for comparing results.

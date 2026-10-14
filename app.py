@@ -50,7 +50,9 @@ class LexiFixApp(tk.Tk):
         self.baseline = NoisyChannelSpellCorrector()
         self.llms: dict[str, LLMCorrector] = {}
         self.last_result: dict[str, str] | None = None
+        self.csv_rows: list[dict[str, str]] = []
         self._build_widgets()
+        self._load_latest_csv()
 
     def _configure_theme(self) -> None:
         """Define a restrained visual theme using only Tkinter primitives."""
@@ -106,7 +108,24 @@ class LexiFixApp(tk.Tk):
         self.rowconfigure(2, weight=1)
         self.rowconfigure(4, weight=1)
 
-        header = ttk.Frame(self, padding=(28, 24, 28, 16), style="App.TFrame")
+        self.notebook = ttk.Notebook(self)
+        self.notebook.grid(row=0, column=0, rowspan=6, sticky="nsew")
+        self.notebook.columnconfigure(0, weight=1)
+        self.notebook.rowconfigure(0, weight=1)
+        correction_tab = ttk.Frame(self.notebook, style="App.TFrame")
+        csv_tab = ttk.Frame(self.notebook, style="App.TFrame")
+        self.notebook.add(correction_tab, text="  Correction workspace  ")
+        self.notebook.add(csv_tab, text="  CSV comparisons  ")
+        self._build_correction_tab(correction_tab)
+        self._build_csv_tab(csv_tab)
+
+    def _build_correction_tab(self, parent: ttk.Frame) -> None:
+        """Build the text correction workspace inside the first tab."""
+        parent.columnconfigure(0, weight=1)
+        parent.rowconfigure(2, weight=1)
+        parent.rowconfigure(4, weight=1)
+
+        header = ttk.Frame(parent, padding=(28, 24, 28, 16), style="App.TFrame")
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
         ttk.Label(
@@ -129,7 +148,7 @@ class LexiFixApp(tk.Tk):
         ).grid(row=0, column=1, sticky="e")
 
         options = ttk.LabelFrame(
-            self, text="  Model settings  ", padding=(16, 12), style="Card.TLabelframe"
+            parent, text="  Model settings  ", padding=(16, 12), style="Card.TLabelframe"
         )
         options.grid(row=1, column=0, padx=28, sticky="ew")
         options.columnconfigure(1, weight=1)
@@ -167,7 +186,7 @@ class LexiFixApp(tk.Tk):
         ).grid(row=1, column=2, sticky="w", padx=(12, 0), pady=(10, 0))
 
         input_frame = ttk.LabelFrame(
-            self, text="  Input text  ", padding=(16, 14), style="Card.TLabelframe"
+            parent, text="  Input text  ", padding=(16, 14), style="Card.TLabelframe"
         )
         input_frame.grid(row=2, column=0, padx=28, pady=(16, 10), sticky="nsew")
         input_frame.columnconfigure(0, weight=1)
@@ -197,7 +216,7 @@ class LexiFixApp(tk.Tk):
         input_scroll.grid(row=0, column=1, sticky="ns")
         self.input_text.configure(yscrollcommand=input_scroll.set)
 
-        actions = ttk.Frame(self, padding=(28, 2, 28, 8), style="App.TFrame")
+        actions = ttk.Frame(parent, padding=(28, 2, 28, 8), style="App.TFrame")
         actions.grid(row=3, column=0, sticky="ew")
         self.correct_button = ttk.Button(
             actions, text="✦  Correct and compare", command=self._start_correction,
@@ -219,7 +238,7 @@ class LexiFixApp(tk.Tk):
             background=COLORS["background"], font=("Segoe UI", 9, "bold")
         ).pack(side="right")
 
-        output = ttk.Frame(self, padding=(28, 4, 28, 0), style="App.TFrame")
+        output = ttk.Frame(parent, padding=(28, 4, 28, 0), style="App.TFrame")
         output.grid(row=4, column=0, sticky="nsew")
         output.columnconfigure(0, weight=1)
         output.columnconfigure(1, weight=1)
@@ -253,10 +272,101 @@ class LexiFixApp(tk.Tk):
             value="Run a correction to see detected errors and model details."
         )
         ttk.Label(
-            self, textvariable=self.details_var, padding=(28, 12, 28, 18),
+            parent, textvariable=self.details_var, padding=(28, 12, 28, 18),
             wraplength=1120, foreground=COLORS["muted"],
             background=COLORS["background"], font=("Segoe UI", 9)
         ).grid(row=5, column=0, sticky="w")
+
+    def _build_csv_tab(self, parent: ttk.Frame) -> None:
+        """Build a table for inspecting generated comparison CSV files."""
+        parent.columnconfigure(0, weight=1)
+        parent.rowconfigure(1, weight=1)
+        toolbar = ttk.Frame(parent, padding=(28, 24, 28, 12), style="App.TFrame")
+        toolbar.grid(row=0, column=0, sticky="ew")
+        toolbar.columnconfigure(0, weight=1)
+        ttk.Label(
+            toolbar,
+            text="Comparison results",
+            font=("Segoe UI", 18, "bold"),
+            foreground=COLORS["text"],
+            background=COLORS["background"],
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Button(
+            toolbar, text="Open CSV file", command=self._open_csv,
+            style="Secondary.TButton",
+        ).grid(row=0, column=1, padx=(8, 0))
+        ttk.Button(
+            toolbar, text="Refresh", command=self._load_latest_csv,
+            style="Secondary.TButton",
+        ).grid(row=0, column=2, padx=(8, 0))
+
+        table_frame = tk.Frame(
+            parent, background=COLORS["surface"],
+            highlightbackground=COLORS["border"], highlightthickness=1, bd=0,
+        )
+        table_frame.grid(row=1, column=0, padx=28, pady=(0, 18), sticky="nsew")
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+        self.csv_table = ttk.Treeview(table_frame, show="headings")
+        self.csv_table.grid(row=0, column=0, sticky="nsew")
+        y_scroll = ttk.Scrollbar(
+            table_frame, orient="vertical", command=self.csv_table.yview
+        )
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll = ttk.Scrollbar(
+            table_frame, orient="horizontal", command=self.csv_table.xview
+        )
+        x_scroll.grid(row=1, column=0, sticky="ew")
+        self.csv_table.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+        self.csv_status_var = tk.StringVar(value="No CSV loaded")
+        ttk.Label(
+            parent, textvariable=self.csv_status_var, padding=(28, 0, 28, 12),
+            foreground=COLORS["muted"], background=COLORS["background"],
+        ).grid(row=2, column=0, sticky="w")
+
+    def _load_latest_csv(self) -> None:
+        """Load the most recent comparison CSV from the project directory."""
+        candidates = [
+            Path("multi_model_results.csv"),
+            Path("llm_comparison_results.csv"),
+            Path("my_results.csv"),
+            Path("spelling_correction_results.csv"),
+        ]
+        for path in candidates:
+            if path.is_file():
+                self._load_csv(path)
+                return
+        self.csv_status_var.set("No comparison CSV found. Run a comparison first.")
+
+    def _open_csv(self) -> None:
+        """Let the user select any comparison CSV to display."""
+        path = filedialog.askopenfilename(
+            title="Open comparison CSV",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        )
+        if path:
+            self._load_csv(Path(path))
+
+    def _load_csv(self, path: Path) -> None:
+        """Read CSV rows and render them with horizontal and vertical scrolling."""
+        try:
+            with path.open(newline="", encoding="utf-8-sig") as stream:
+                rows = list(csv.DictReader(stream))
+            if not rows:
+                raise ValueError("The CSV contains no data rows.")
+            columns = list(rows[0])
+            self.csv_rows = rows
+            self.csv_table.configure(columns=columns)
+            for column in columns:
+                self.csv_table.heading(column, text=column)
+                self.csv_table.column(column, width=max(130, min(360, len(column) * 10)))
+            for item in self.csv_table.get_children():
+                self.csv_table.delete(item)
+            for row in rows:
+                self.csv_table.insert("", "end", values=[row.get(column, "") for column in columns])
+            self.csv_status_var.set(f"{path.name} • {len(rows)} result(s)")
+        except (OSError, csv.Error, ValueError) as error:
+            messagebox.showerror("CSV could not be loaded", str(error))
 
     def _make_output_box(self, parent: ttk.Frame, column: int) -> tk.Text:
         """Create one read-only-looking text area for a model result."""
@@ -400,6 +510,8 @@ class LexiFixApp(tk.Tk):
             writer = csv.DictWriter(stream, fieldnames=fields)
             writer.writeheader()
             writer.writerow(self.last_result)
+        self._load_csv(Path(path))
+        self.notebook.select(1)
         self.status_var.set(f"Saved: {Path(path).name}")
 
 
