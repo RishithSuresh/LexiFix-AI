@@ -34,8 +34,14 @@ provided:
 
 ```powershell
 & "C:\Users\rishi\anaconda3\envs\nlp\python.exe" .\run_comparison.py `
-  --llm-model "google/flan-t5-small"
+  --llm-model "vennify/t5-base-grammar-correction" `
+  --summary-output .\llm_comparison_summary.csv
 ```
+
+Use a model trained for correction rather than a general instruction model
+such as `google/flan-t5-small`; general models often copy misspellings instead
+of correcting them. The recommended checkpoint uses the `grammar:` task
+prefix internally.
 
 For a larger labeled dataset, create a CSV with `input_text` and
 `expected_text` columns and pass it to the runner:
@@ -53,6 +59,7 @@ word accuracies against the expected text. The CSV also reports token-level
 correction precision, recall, and F1. These metrics measure whether the system
 changed exactly the tokens that differ between the input and expected text;
 they are more informative than accuracy when false corrections matter.
+The optional summary CSV contains the mean metrics for each system.
 
 ## Understand the baseline
 

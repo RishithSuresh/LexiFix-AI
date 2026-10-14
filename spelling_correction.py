@@ -147,8 +147,8 @@ class NoisyChannelSpellCorrector:
 class LLMCorrector:
     """Optional Hugging Face text-to-text corrector.
 
-    The model is loaded lazily. Configure a model such as a fine-tuned
-    spelling-correction checkpoint with ``model_name``.
+    The model is loaded lazily. Use a checkpoint trained for grammar or
+    spelling correction, such as ``vennify/t5-base-grammar-correction``.
     """
 
     def __init__(self, model_name: str) -> None:
@@ -164,9 +164,11 @@ class LLMCorrector:
             except (ImportError, AttributeError) as exc:
                 raise RuntimeError("Install transformers to use the LLM corrector.") from exc
             self._pipeline = pipeline("text2text-generation", model=self.model_name)
-        # Deterministic generation makes repeated benchmark runs comparable.
+        # The ``grammar:`` task prefix is part of the training convention for
+        # the recommended checkpoint and produces much better corrections than
+        # a generic instruction prompt.
         result = self._pipeline(
-            f"Correct the spelling only. Preserve meaning and punctuation: {text}",
+            f"grammar: {text}",
             max_new_tokens=max(32, len(text.split()) * 3),
             do_sample=False,
         )

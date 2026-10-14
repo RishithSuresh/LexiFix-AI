@@ -1,0 +1,4 @@
+input_text,expected_text,detected_errors,baseline_text,baseline_accuracy,baseline_precision,baseline_recall,baseline_f1,llm_text,llm_accuracy,llm_precision,llm_recall,llm_f1,llm_status
+I recieve the mesage from my frend.,I receive the message from my friend.,recieve; mesage; frend,I receive the message from my friend.,1.000,1.000,1.000,1.000,I received the message from my friend.,0.857,1.000,1.000,1.000,ok
+This is a beautifull and usefull example.,This is a beautiful and useful example.,beautifull; usefull,This is a beautiful and useful example.,1.000,1.000,1.000,1.000,This is a beautiful and useful example.,1.000,1.000,1.000,1.000,ok
+The quick brown fox jumpd over the lazy dog.,The quick brown fox jumped over the lazy dog.,jumpd,The quick brown fox jumped over the lazy dog.,1.000,1.000,1.000,1.000,The quick brown fox jumps over the lazy dog.,0.889,1.000,1.000,1.000,ok

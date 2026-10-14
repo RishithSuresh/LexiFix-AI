@@ -19,6 +19,7 @@ DEFAULT_CASES = [
     ("This is a beautifull and usefull example.", "This is a beautiful and useful example."),
     ("The quick brown fox jumpd over the lazy dog.", "The quick brown fox jumped over the lazy dog."),
 ]
+RECOMMENDED_LLM_MODEL = "vennify/t5-base-grammar-correction"
 
 
 def load_cases(path: Path) -> list[tuple[str, str]]:
@@ -40,6 +41,7 @@ def run(
     output: Path,
     llm_model: str | None,
     max_distance: int = 2,
+    summary_output: Path | None = None,
 ) -> None:
     """Evaluate every case and write one auditable row per example."""
     baseline = NoisyChannelSpellCorrector(max_distance=max_distance)
@@ -53,10 +55,16 @@ def run(
     with output.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
+        metric_rows: list[dict[str, float]] = []
         for input_text, expected_text in cases:
             # Keep the raw input and expected answer in the output so each
             # metric can be independently checked later.
             baseline_text, corrections = baseline.correct(input_text)
+            baseline_metrics = correction_metrics(input_text, expected_text, baseline_text)
+            metric_rows.append({
+                "baseline_accuracy": word_accuracy(expected_text, baseline_text),
+                **{f"baseline_{key}": value for key, value in baseline_metrics.items()},
+            })
             row = {
                 "input_text": input_text,
                 "expected_text": expected_text,
@@ -67,9 +75,7 @@ def run(
                 "baseline_accuracy": f"{word_accuracy(expected_text, baseline_text):.3f}",
                 **{
                     f"baseline_{key}": f"{value:.3f}"
-                    for key, value in correction_metrics(
-                        input_text, expected_text, baseline_text
-                    ).items()
+                    for key, value in baseline_metrics.items()
                 },
                 "llm_text": "",
                 "llm_accuracy": "",
@@ -90,9 +96,35 @@ def run(
                         ).items()
                     })
                     row["llm_status"] = "ok"
+                    metric_rows[-1].update({
+                        "llm_accuracy": word_accuracy(expected_text, llm_text),
+                        **{f"llm_{key}": value for key, value in correction_metrics(
+                            input_text, expected_text, llm_text
+                        ).items()},
+                    })
                 except (RuntimeError, OSError, ValueError) as exc:
                     row["llm_status"] = f"error: {exc}"
             writer.writerow(row)
+    if summary_output is not None:
+        summary_output.parent.mkdir(parents=True, exist_ok=True)
+        summary_fields = ["system", "accuracy", "precision", "recall", "f1"]
+        with summary_output.open("w", newline="", encoding="utf-8") as stream:
+            summary_writer = csv.DictWriter(stream, fieldnames=summary_fields)
+            summary_writer.writeheader()
+            for system in ("baseline", "llm"):
+                values = [
+                    row for row in metric_rows
+                    if f"{system}_accuracy" in row
+                ]
+                if not values:
+                    continue
+                summary_writer.writerow({
+                    "system": system,
+                    **{
+                        metric: f"{sum(row[f'{system}_{metric}'] for row in values) / len(values):.3f}"
+                        for metric in ("accuracy", "precision", "recall", "f1")
+                    },
+                })
 
 
 def main() -> None:
@@ -102,9 +134,14 @@ def main() -> None:
     parser.add_argument("--cases", type=Path, help="CSV with input_text and expected_text columns.")
     parser.add_argument("--max-distance", type=int, default=2)
     parser.add_argument("--llm-model", help="Hugging Face text-to-text model name or local path.")
+    parser.add_argument(
+        "--summary-output",
+        type=Path,
+        help="Optional CSV containing mean baseline and LLM metrics.",
+    )
     args = parser.parse_args()
     cases = load_cases(args.cases) if args.cases else DEFAULT_CASES
-    run(cases, args.output, args.llm_model, args.max_distance)
+    run(cases, args.output, args.llm_model, args.max_distance, args.summary_output)
     print(f"Wrote comparison results to {args.output}")
 
 
