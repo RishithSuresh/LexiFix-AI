@@ -127,6 +127,7 @@ LexiFix AI/
 ├── my_cases.csv                 # Example labeled input
 ├── spelling_correction_results.csv
 ├── tests/test_spelling_correction.py
+├── tests/test_run_comparison.py
 ├── requirements.txt
 └── README.md
 ```
@@ -146,8 +147,7 @@ LexiFix AI/
 & "C:\Users\rishi\anaconda3\envs\nlp\python.exe" -m compileall -q .
 ```
 
-The test file contains six focused checks and can be run with pytest if it is
-installed:
+The focused regression tests can be run with pytest if it is installed:
 
 ```powershell
 & "C:\Users\rishi\anaconda3\envs\nlp\python.exe" -m pytest .\tests

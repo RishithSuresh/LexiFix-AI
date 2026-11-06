@@ -44,7 +44,17 @@ def load_cases(path: Path) -> list[tuple[str, str]]:
         rows = list(csv.DictReader(stream))
     if not rows or not {"input_text", "expected_text"} <= set(rows[0]):
         raise ValueError("Cases CSV must contain input_text and expected_text columns.")
-    return [(row["input_text"], row["expected_text"]) for row in rows]
+    cases: list[tuple[str, str]] = []
+    for row_number, row in enumerate(rows, start=2):
+        input_text = row.get("input_text")
+        expected_text = row.get("expected_text")
+        if not input_text or not expected_text:
+            raise ValueError(
+                f"Cases CSV row {row_number} must have non-empty input_text "
+                "and expected_text values."
+            )
+        cases.append((input_text, expected_text))
+    return cases
 
 
 def run(
@@ -56,8 +66,12 @@ def run(
     llm_models: list[str] | None = None,
 ) -> None:
     """Evaluate every case and write one auditable row per example."""
+    if not cases:
+        raise ValueError("At least one labeled case is required.")
     baseline = NoisyChannelSpellCorrector(max_distance=max_distance)
-    selected_models = llm_models or ([llm_model] if llm_model else [])
+    selected_models = list(dict.fromkeys(llm_models or ([llm_model] if llm_model else [])))
+    if any(not model.strip() for model in selected_models):
+        raise ValueError("LLM model identifiers must be non-empty.")
     llms = {
         model: LLMCorrector(model, MODEL_PRESETS.get(model, "grammar:"))
         for model in selected_models

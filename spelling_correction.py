@@ -183,9 +183,12 @@ def word_accuracy(reference: str, prediction: str) -> float:
     """Calculate case-insensitive positional word accuracy."""
     expected = [word.lower() for word in _tokenize(reference)]
     actual = [word.lower() for word in _tokenize(prediction)]
-    if not expected:
-        return 1.0 if not actual else 0.0
-    return sum(a == b for a, b in zip(expected, actual)) / len(expected)
+    length = max(len(expected), len(actual))
+    if not length:
+        return 1.0
+    expected.extend([""] * (length - len(expected)))
+    actual.extend([""] * (length - len(actual)))
+    return sum(a == b for a, b in zip(expected, actual)) / length
 
 
 def correction_metrics(source: str, reference: str, prediction: str) -> dict[str, float]:

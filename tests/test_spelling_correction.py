@@ -27,6 +27,12 @@ def test_correct_replaces_only_word_tokens():
 def test_word_accuracy_handles_different_lengths():
     assert word_accuracy("one two", "one two") == 1.0
     assert word_accuracy("one two", "one") == 0.5
+    assert word_accuracy("one", "one two") == 0.5
+
+
+def test_word_accuracy_handles_empty_text():
+    assert word_accuracy("", "") == 1.0
+    assert word_accuracy("", "one") == 0.0
 
 
 def test_correction_metrics_measure_changed_tokens():
