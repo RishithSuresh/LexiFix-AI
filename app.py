@@ -35,6 +35,10 @@ from spelling_correction import (
 )
 from run_comparison import MODEL_PRESETS, load_cases, run as run_cli_cases
 
+# ==============================================================================
+# SECTION 1: SYSTEM & MODEL CONFIGURATION
+# ==============================================================================
+# Pre-registered Hugging Face Seq2Seq model architectures and local path constants.
 MODEL_OPTIONS = (
     "vennify/t5-base-grammar-correction",
     "Unbabel/gec-t5_small",
@@ -45,14 +49,14 @@ MODEL_OPTIONS = (
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR / "web"
 
-# Thread-safe LLM model cache
+# Thread-safe LLM model cache to prevent reloading heavy PyTorch weights per request
 _LLM_CACHE: dict[str, LLMCorrector] = {}
 _LLM_LOCK = threading.Lock()
 _BASELINE = NoisyChannelSpellCorrector()
 
 
 def get_llm(model_name: str) -> LLMCorrector:
-    """Retrieve or lazily initialize an LLM corrector."""
+    """Retrieve or lazily initialize an LLM corrector in a thread-safe manner."""
     with _LLM_LOCK:
         if model_name not in _LLM_CACHE:
             prefix = MODEL_PRESETS.get(model_name, "grammar:")
@@ -61,12 +65,17 @@ def get_llm(model_name: str) -> LLMCorrector:
 
 
 def find_free_port(preferred: int = 8765) -> int:
-    """Find an available TCP port starting from preferred."""
+    """Find an available TCP port starting from preferred to avoid bind conflicts."""
     for port in range(preferred, preferred + 50):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if s.connect_ex(("127.0.0.1", port)) != 0:
                 return port
     return preferred
+
+
+# ==============================================================================
+# SECTION 2: MULTI-THREADED HTTP REST API & ASSET SERVER
+# ==============================================================================
 
 
 class LexiFixRequestHandler(SimpleHTTPRequestHandler):

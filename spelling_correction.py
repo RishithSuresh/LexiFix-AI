@@ -1,12 +1,27 @@
-"""Spelling detection and correction components used by LexiFix AI.
+"""LexiFix AI — Spelling Intelligence and Grammar Correction Engine.
 
-The baseline follows an enhanced multi-signal noisy-channel model:
-1. Fast candidate generation via Norvig edits and Soundex phonetic indexing.
-2. Context-aware bigram language model scoring P(w_i | w_{i-1}).
-3. Phonetic matching via American Soundex rules (boosting phonetic typos).
-4. Transposition detection via Damerau-Levenshtein distance.
-5. Physical keyboard proximity weighting for QWERTY typing errors.
-6. Dynamic training support for custom text corpora and domain vocabularies.
+This module implements a hybrid spelling correction architecture:
+1. Deterministic NLP Baseline:
+   - Bayesian Noisy Channel Model: P(c|w) ~ P(w|c) * P(c)
+   - Peter Norvig 1.1M-token corpus ('data/big.txt') with frequency tracking
+   - Candidate generation via edits1 (deletions, transpositions, substitutions, insertions) and edits2
+   - American Soundex phonetic encoding for phonetic slip matching (e.g. frend -> friend)
+   - Damerau-Levenshtein distance calculation (handles character transpositions in 1 step)
+   - Physical QWERTY keyboard Euclidean distance weighting for typo modeling
+   - Bigram language model transition probabilities: P(w_i | w_{i-1}) and P(w_{i+1} | w_i)
+   - Dynamic real-time corpus training and vocabulary expansion via train() / train_file()
+
+2. Deep Learning Seq2Seq Transformers:
+   - Hardware-accelerated Hugging Face Seq2Seq LM pipeline (PyTorch + CUDA/CPU)
+   - Deterministic Beam Search decoding (num_beams=2) for high grammatical accuracy
+   - Prompt-prefixed generation for instruction-following models (e.g., FLAN-T5, T5-GEC)
+
+3. Comprehensive Evaluation Metrics:
+   - Positional Word Accuracy
+   - Character Error Rate (CER) via normalized string Levenshtein distance
+   - Word Error Rate (WER) via token-level Levenshtein alignment
+   - Sentence-level Exact Match (EM)
+   - Token-level Precision, Recall, and F1 score
 """
 
 from __future__ import annotations
@@ -20,6 +35,10 @@ import re
 from typing import Iterable
 
 
+# ==============================================================================
+# SECTION 1: DEFAULT BASELINE VOCABULARY & CORPUS INITIALIZATION
+# ==============================================================================
+# Used as immediate offline fallback when external corpus files are unavailable.
 DEFAULT_CORPUS = """
 the of and to in a is that for it as was with be by on not he i this are or his
 from at which but have an had they you were their one all we can her has there
@@ -55,6 +74,12 @@ playing football play plays played sport sports soccer game games running
 watch watching watched movie television study studying studied science
 """.strip()
 
+# ==============================================================================
+# SECTION 2: TOKENIZATION & NORVIG CANDIDATE GENERATION
+# ==============================================================================
+# Uses Peter Norvig's classic spelling corrector formulation:
+# Generates candidate sets at edit distances 1 and 2 using alphabet transformations.
+
 WORD_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 LETTERS = "abcdefghijklmnopqrstuvwxyz"
 
@@ -72,7 +97,11 @@ def _load_initial_corpus() -> str:
     return DEFAULT_CORPUS
 
 
-# Standard QWERTY keyboard coordinate map for physical typo modeling
+# ==============================================================================
+# SECTION 3: PHYSICAL KEYBOARD GEOMETRY & TYPO MODELING
+# ==============================================================================
+# Maps physical 2D coordinates of a QWERTY layout to calculate Euclidean distance
+# between keys, heavily penalizing keys far apart on the keyboard.
 QWERTY_COORDS: dict[str, tuple[int, int]] = {
     'q': (0, 0), 'w': (0, 1), 'e': (0, 2), 'r': (0, 3), 't': (0, 4), 'y': (0, 5), 'u': (0, 6), 'i': (0, 7), 'o': (0, 8), 'p': (0, 9),
     'a': (1, 0), 's': (1, 1), 'd': (1, 2), 'f': (1, 3), 'g': (1, 4), 'h': (1, 5), 'j': (1, 6), 'k': (1, 7), 'l': (1, 8),
@@ -81,12 +110,19 @@ QWERTY_COORDS: dict[str, tuple[int, int]] = {
 
 
 def _tokenize(text: str) -> list[str]:
-    """Extract alphabetic words from raw text."""
+    """Extract alphabetic words from raw text, retaining internal apostrophes."""
     return WORD_RE.findall(text)
 
 
 def _edits1(word: str) -> set[str]:
-    """All edits that are one edit away (delete, transpose, replace, insert)."""
+    """Generate all candidate strings exactly 1 edit distance from input word.
+    
+    Covers four primary edit categories:
+    1. Deletions: removing one character (e.g., 'word' -> 'wrd')
+    2. Transpositions: swapping two adjacent characters (e.g., 'recieve' -> 'receive')
+    3. Substitutions: replacing one character with any letter in the alphabet
+    4. Insertions: adding any letter of the alphabet at any position
+    """
     splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
     deletes = [L + R[1:] for L, R in splits if R]
     transposes = [L + R[1] + R[0] + R[2:] for L, R in splits if len(R) > 1]
@@ -96,12 +132,25 @@ def _edits1(word: str) -> set[str]:
 
 
 def _edits2(word: str) -> set[str]:
-    """All edits that are two edits away from word."""
+    """Generate all candidate strings exactly 2 edits away by compounding edits1."""
     return set(e2 for e1 in _edits1(word) for e2 in _edits1(e1))
 
 
+# ==============================================================================
+# SECTION 4: PHONETIC ENCODING (AMERICAN SOUNDEX ALGORITHM)
+# ==============================================================================
 def _soundex(word: str) -> str:
-    """Calculate American Soundex code for phonetic error matching."""
+    """Calculate the 4-character American Soundex phonetic hash of an English word.
+    
+    Soundex indexes words by how they sound rather than how they are spelled.
+    Consonants that sound alike share the same digit code (e.g., B, F, P, V -> 1).
+    Vowels and letters H/W are ignored. 
+    Examples:
+        'frend'   -> 'F653'
+        'friend'  -> 'F653'  (Identical hash -> phonetic match!)
+        'recieve' -> 'R210'
+        'receive' -> 'R210'
+    """
     if not word:
         return ""
     word_upper = word.upper()
@@ -144,8 +193,14 @@ def _keyboard_distance(char1: str, char2: str) -> float:
     return 3.0
 
 
+# ==============================================================================
+# SECTION 5: STRING DISTANCE ALGORITHMS
+# ==============================================================================
 def _edit_distance(left: str, right: str) -> int:
-    """Return Levenshtein distance using two rows of O(min(len(left), len(right)))."""
+    """Return standard Levenshtein distance using dynamic programming O(min(m, n)) space.
+    
+    Allowed operations: Insertion, Deletion, Substitution (cost = 1 each).
+    """
     if len(left) < len(right):
         left, right = right, left
     previous = list(range(len(right) + 1))
@@ -164,7 +219,15 @@ def _edit_distance(left: str, right: str) -> int:
 
 
 def _damerau_levenshtein_distance(left: str, right: str) -> int:
-    """Return Damerau-Levenshtein distance (insert, delete, substitute, transpose)."""
+    """Return true Damerau-Levenshtein distance.
+    
+    Allowed operations:
+    1. Insertion
+    2. Deletion
+    3. Substitution
+    4. Transposition of two adjacent characters (cost = 1).
+    Crucial for typos like 'recieve' vs 'receive' where 'ie' -> 'ei' counts as 1 edit.
+    """
     d: dict[tuple[int, int], int] = {}
     len_l, len_r = len(left), len(right)
     for i in range(-1, len_l + 1):
@@ -188,7 +251,7 @@ def _damerau_levenshtein_distance(left: str, right: str) -> int:
 
 @dataclass(frozen=True)
 class Correction:
-    """The decision made for one token in the input text."""
+    """Represents the correction decision made for a single token."""
 
     original: str
     corrected: str
@@ -198,11 +261,19 @@ class Correction:
     phonetic_match: bool = False
 
 
+# ==============================================================================
+# SECTION 6: NOISY CHANNEL SPELL CORRECTOR (BAYESIAN NLP BASELINE)
+# ==============================================================================
 class NoisyChannelSpellCorrector:
-    """Detect out-of-vocabulary words and choose likely corrections.
+    """Multi-signal spelling correction engine.
 
-    Enhanced with contextual bigrams, phonetic Soundex heuristics,
-    Damerau-Levenshtein transposition awareness, and dynamic corpus training.
+    Combines:
+    - Bayesian prior word probabilities P(candidate) from token frequencies
+    - Bigram context language model P(candidate | previous) and P(next | candidate)
+    - Soundex phonetic matching bonus
+    - Damerau transposition distance minimization
+    - Physical QWERTY keyboard distance heuristics
+    - Online learning / dynamic vocabulary ingestion
     """
 
     def __init__(
@@ -462,10 +533,17 @@ class NoisyChannelSpellCorrector:
         return "".join(parts), corrections
 
 
+# ==============================================================================
+# SECTION 7: DEEP LEARNING SEQ2SEQ TRANSFORMER BRIDGE (PYTORCH + HUGGING FACE)
+# ==============================================================================
 class LLMCorrector:
-    """Hugging Face text-to-text / seq2seq transformer corrector.
+    """Hardware-accelerated Hugging Face Seq2Seq / text-to-text transformer bridge.
 
-    Supports beam search generation, automatic CUDA acceleration, and legacy pipelines.
+    Features:
+    - Lazy loading with automatic CUDA GPU hardware acceleration detection
+    - Deterministic beam search decoding (num_beams=2) for high grammatical consistency
+    - Task prefix injection (e.g. 'grammar:', 'gec: ', 'Fix spelling: ') for instruction models
+    - Robust fallback to standard transformers pipeline for legacy environments
     """
 
     def __init__(self, model_name: str, task_prefix: str = "grammar:") -> None:
@@ -562,8 +640,15 @@ class LLMCorrector:
         return text
 
 
+# ==============================================================================
+# SECTION 8: QUANTITATIVE EVALUATION & BENCHMARK METRICS
+# ==============================================================================
 def word_accuracy(reference: str, prediction: str) -> float:
-    """Calculate case-insensitive positional word accuracy."""
+    """Calculate case-insensitive positional word accuracy.
+    
+    Compares token-by-token alignment up to max length:
+    accuracy = sum(match_i) / max(len(ref), len(pred))
+    """
     expected = [word.lower() for word in _tokenize(reference)]
     actual = [word.lower() for word in _tokenize(prediction)]
     length = max(len(expected), len(actual))

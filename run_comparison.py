@@ -66,9 +66,21 @@ def run(
     summary_output: Path | None = None,
     llm_models: list[str] | None = None,
 ) -> None:
-    """Evaluate every case and write one auditable row per example."""
+    """Evaluate every case and write one auditable row per example.
+    
+    Workflow:
+    1. Initializes deterministic NoisyChannelSpellCorrector baseline with max_distance.
+    2. Deduplicates target LLM model identifiers and maps appropriate task prompts.
+    3. Iterates over all (input_text, expected_text) test cases.
+    4. Evaluates baseline corrections, computing accuracy, precision, recall, and F1.
+    5. Evaluates each target LLM safely, capturing generated outputs and errors.
+    6. Writes individual case results to the output CSV.
+    7. Optionally generates a macro-averaged summary CSV of model performances.
+    """
     if not cases:
         raise ValueError("At least one labeled case is required.")
+    
+    # Step 1: Initialize baseline engine and requested LLM instances
     baseline = NoisyChannelSpellCorrector(max_distance=max_distance)
     selected_models = list(dict.fromkeys(llm_models or ([llm_model] if llm_model else [])))
     if any(not model.strip() for model in selected_models):
@@ -78,6 +90,8 @@ def run(
         for model in selected_models
     }
     output.parent.mkdir(parents=True, exist_ok=True)
+
+    # Step 2: Construct CSV header schema supporting arbitrary comparative models
     fields = [
         "input_text", "expected_text", "detected_errors", "baseline_text",
         "baseline_accuracy", "baseline_precision", "baseline_recall", "baseline_f1",
@@ -89,6 +103,8 @@ def run(
             f"{prefix}_text", f"{prefix}_accuracy", f"{prefix}_precision",
             f"{prefix}_recall", f"{prefix}_f1", f"{prefix}_status",
         ])
+
+    # Step 3: Execute comparative evaluations and write dataset
     with output.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
