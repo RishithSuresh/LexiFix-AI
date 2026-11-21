@@ -37,7 +37,7 @@ from run_comparison import MODEL_PRESETS, load_cases, run as run_cli_cases
 
 MODEL_OPTIONS = (
     "vennify/t5-base-grammar-correction",
-    "vennify/t5-small-grammar-correction",
+    "Unbabel/gec-t5_small",
     "google/flan-t5-small",
     "oliverguhr/spelling-correction-english-base",
 )

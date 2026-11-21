@@ -23,8 +23,8 @@ DEFAULT_CASES = [
 RECOMMENDED_LLM_MODEL = "vennify/t5-base-grammar-correction"
 MODEL_PRESETS = {
     "vennify/t5-base-grammar-correction": "grammar:",
-    "google/flan-t5-small": "",
-    "vennify/t5-small-grammar-correction": "grammar:",
+    "Unbabel/gec-t5_small": "gec: ",
+    "google/flan-t5-small": "Fix spelling: ",
     "oliverguhr/spelling-correction-english-base": "",
 }
 
