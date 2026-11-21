@@ -1,77 +1,76 @@
 /* Modern Design System for LexiFix AI
- * Colour Scheme:
- * 1. Eclipse Plum - #2B1C33 (50% Dominant Base Canvas)
- * 2. Pebble Silk  - #D9D3CC (Enhanced Prominent Secondary, Structure & Content)
- * 3. Amber Flare  - #FF8C12 (20% Radiant Accent & Energy)
+ * Proportional Colour Scheme:
+ * 1. Pebble Silk  - #D9D3CC (60% Dominant Canvas, Surfaces & Containers)
+ * 2. Eclipse Plum - #2B1C33 (20% Structural Framing, Brand Header & Crisp Typography)
+ * 3. Amber Flare  - #FF8C12 (20% High-Energy Accents, CTAs & Interactive Highlights)
  */
 
 :root {
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
 
-  /* 50% Dominant Canvas: Eclipse Plum (#2B1C33) */
-  --bg-app: #2B1C33;
-  --bg-sidebar: #221528;
-  --bg-surface: #35233E;
-  --bg-surface-elevated: #3E2949;
-  --bg-input: #1F1325;
-  --border-subtle: rgba(217, 211, 204, 0.22);
+  /* 60% Dominant Base Canvas & Surfaces: Pebble Silk (#D9D3CC) */
+  --bg-app: #D9D3CC;
+  --bg-sidebar: #ECE7E1;
+  --bg-surface: #F4EFEA;
+  --bg-surface-elevated: #FFFFFF;
+  --bg-input: #FFFFFF;
+  --bg-well: #E5E0DA;
+  --border-subtle: rgba(43, 28, 51, 0.15);
+  --border-card: rgba(43, 28, 51, 0.22);
   --border-focus: #FF8C12;
 
-  /* Prominently Integrated: Pebble Silk (#D9D3CC) */
-  --text-primary: #D9D3CC;
-  --text-secondary: #C7BFB5;
-  --text-muted: #9E958A;
+  /* 20% Contrast Structure & Deep Typography: Eclipse Plum (#2B1C33) */
+  --color-plum: #2B1C33;
+  --color-plum-dark: #201326;
+  --color-plum-surface: #35233E;
+  --text-primary: #2B1C33;
+  --text-secondary: #4E3758;
+  --text-muted: #785A85;
   --color-silk: #D9D3CC;
-  --color-silk-soft: rgba(217, 211, 204, 0.12);
-  --color-silk-hover: rgba(217, 211, 204, 0.2);
-  --border-silk: rgba(217, 211, 204, 0.3);
-  --border-silk-strong: rgba(217, 211, 204, 0.45);
+  --border-plum: rgba(43, 28, 51, 0.3);
 
-  /* 20% Vibrant Energy: Amber Flare (#FF8C12) */
+  /* 20% Radiant Energy: Amber Flare (#FF8C12) */
   --accent-primary: #FF8C12;
   --accent-primary-hover: #E67B0D;
-  --accent-glow: rgba(255, 140, 18, 0.3);
+  --accent-glow: rgba(255, 140, 18, 0.38);
   --accent-soft-bg: rgba(255, 140, 18, 0.16);
 
   --color-success: #FF8C12;
   --color-success-bg: rgba(255, 140, 18, 0.18);
   --color-warning: #FFA742;
   --color-warning-bg: rgba(255, 167, 66, 0.18);
-  --color-danger: #F43F5E;
-  --color-danger-bg: rgba(244, 63, 94, 0.2);
+  --color-danger: #D92546;
+  --color-danger-bg: rgba(217, 37, 70, 0.14);
   --color-info: #FF8C12;
   --color-info-bg: rgba(255, 140, 18, 0.14);
 }
 
-[data-theme="light"] {
-  /* Inverse Theme: Pebble Silk canvas with Eclipse Plum structure */
-  --bg-app: #D9D3CC;
-  --bg-sidebar: #CBC4BC;
-  --bg-surface: #E8E3DD;
-  --bg-surface-elevated: #F2EFEA;
-  --bg-input: #FFFFFF;
-  --border-subtle: rgba(43, 28, 51, 0.25);
+[data-theme="dark"] {
+  /* Inverse Contrast Mode: Deep Eclipse Plum with Pebble Silk & Amber Flare */
+  --bg-app: #2B1C33;
+  --bg-sidebar: #221528;
+  --bg-surface: #35233E;
+  --bg-surface-elevated: #3E2949;
+  --bg-input: #1F1325;
+  --bg-well: #26162E;
+  --border-subtle: rgba(217, 211, 204, 0.22);
+  --border-card: rgba(217, 211, 204, 0.3);
   --border-focus: #FF8C12;
 
-  --text-primary: #2B1C33;
-  --text-secondary: #483452;
-  --text-muted: #6C5578;
-  --color-silk: #2B1C33;
+  --color-plum: #2B1C33;
+  --color-plum-dark: #190E1F;
+  --color-plum-surface: #35233E;
+  --text-primary: #D9D3CC;
+  --text-secondary: #C7BFB5;
+  --text-muted: #9E958A;
+  --color-silk: #D9D3CC;
+  --border-plum: rgba(217, 211, 204, 0.3);
 
   --accent-primary: #FF8C12;
   --accent-primary-hover: #E67B0D;
   --accent-glow: rgba(255, 140, 18, 0.35);
-  --accent-soft-bg: rgba(255, 140, 18, 0.2);
-
-  --color-success: #FF8C12;
-  --color-success-bg: rgba(255, 140, 18, 0.15);
-  --color-warning: #E67B0D;
-  --color-warning-bg: rgba(230, 123, 13, 0.15);
-  --color-danger: #E11D48;
-  --color-danger-bg: rgba(225, 29, 72, 0.15);
-  --color-info: #FF8C12;
-  --color-info-bg: rgba(255, 140, 18, 0.15);
+  --accent-soft-bg: rgba(255, 140, 18, 0.18);
 }
 
 * {
@@ -100,89 +99,95 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
+  background: rgba(43, 28, 51, 0.25);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-silk);
+  background: var(--accent-primary);
 }
 
-/* Glassmorphism & Surface Cards with Crisp Pebble Silk Framing */
+/* Surface Cards with Pebble Silk Base (60%) and Plum Framing (20%) */
 .surface-card {
   background: var(--bg-surface);
-  border: 1px solid rgba(217, 211, 204, 0.22);
+  border: 1px solid var(--border-card);
   border-radius: 12px;
-  box-shadow: 0 6px 24px -2px rgba(18, 10, 22, 0.45);
+  box-shadow: 0 4px 18px -2px rgba(43, 28, 51, 0.08);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .surface-card:hover {
-  border-color: rgba(217, 211, 204, 0.45);
-  box-shadow: 0 8px 30px -4px rgba(217, 211, 204, 0.1);
+  border-color: rgba(43, 28, 51, 0.38);
+  box-shadow: 0 8px 26px -4px rgba(43, 28, 51, 0.14);
 }
 
 .surface-elevated {
   background: var(--bg-surface-elevated);
-  border: 1px solid rgba(217, 211, 204, 0.25);
-  border-radius: 8px;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  box-shadow: 0 2px 10px -1px rgba(43, 28, 51, 0.06);
 }
 
-/* Pebble Silk Button Utility */
+/* Pebble Silk Buttons & Utility Elements */
 .silk-btn {
-  background: rgba(217, 211, 204, 0.12);
-  border: 1px solid rgba(217, 211, 204, 0.3);
-  color: var(--color-silk);
-  font-weight: 500;
+  background: rgba(43, 28, 51, 0.07);
+  border: 1px solid rgba(43, 28, 51, 0.22);
+  color: var(--text-primary);
+  font-weight: 600;
   transition: all 0.2s ease;
 }
 
 .silk-btn:hover {
-  background: rgba(217, 211, 204, 0.22);
-  border-color: rgba(217, 211, 204, 0.55);
-  color: #FFFFFF;
+  background: rgba(43, 28, 51, 0.14);
+  border-color: rgba(43, 28, 51, 0.4);
+  color: #2B1C33;
 }
 
-/* Pebble Silk Chip / Badge Utility */
+/* Pebble Silk Badges / Chips */
 .silk-chip {
-  background: rgba(217, 211, 204, 0.1);
-  border: 1px solid rgba(217, 211, 204, 0.28);
-  color: var(--color-silk);
+  background: rgba(43, 28, 51, 0.06);
+  border: 1px solid rgba(43, 28, 51, 0.2);
+  color: var(--text-primary);
+  font-weight: 500;
   transition: all 0.2s ease;
 }
 
 .silk-chip:hover {
-  background: rgba(217, 211, 204, 0.2);
-  border-color: rgba(217, 211, 204, 0.5);
+  background: rgba(43, 28, 51, 0.12);
+  border-color: rgba(43, 28, 51, 0.35);
 }
 
-/* Diff Highlighting */
+/* Diff Visualizer Highlighting */
 .diff-container {
   font-family: var(--font-sans);
   font-size: 0.95rem;
-  line-height: 1.7;
+  line-height: 1.8;
   letter-spacing: 0.01em;
 }
 
 .diff-del {
   background-color: var(--color-danger-bg);
-  color: #F87171;
+  color: var(--color-danger);
   text-decoration: line-through;
-  padding: 2px 7px;
-  border-radius: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
   margin: 0 2px;
-  font-weight: 500;
-  border: 1px dashed rgba(248, 113, 113, 0.4);
+  font-weight: 600;
+  border: 1px dashed rgba(217, 37, 70, 0.45);
 }
 
 .diff-ins {
-  background-color: rgba(255, 140, 18, 0.24);
-  color: #FF8C12;
-  padding: 2px 8px;
-  border-radius: 5px;
+  background-color: rgba(255, 140, 18, 0.22);
+  color: #B85B00;
+  padding: 3px 9px;
+  border-radius: 6px;
   margin: 0 2px;
   font-weight: 700;
-  border: 1px solid rgba(255, 140, 18, 0.65);
-  box-shadow: 0 0 10px rgba(255, 140, 18, 0.2);
+  border: 1px solid #FF8C12;
+  box-shadow: 0 0 12px rgba(255, 140, 18, 0.25);
+}
+
+[data-theme="dark"] .diff-ins {
+  color: #FF8C12;
 }
 
 .diff-token {
@@ -190,13 +195,13 @@ body {
   margin: 1px 0;
 }
 
-/* Interactive Correction Badges with Pebble Silk & Amber Flare */
+/* Interactive Correction Badges */
 .correction-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(217, 211, 204, 0.12);
-  border: 1px solid rgba(217, 211, 204, 0.3);
+  background: rgba(43, 28, 51, 0.08);
+  border: 1px solid rgba(43, 28, 51, 0.25);
   padding: 4px 10px;
   border-radius: 9999px;
   font-size: 0.8rem;
@@ -220,16 +225,16 @@ body {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, rgba(217, 211, 204, 0.08) 25%, rgba(217, 211, 204, 0.2) 50%, rgba(217, 211, 204, 0.08) 75%);
+  background: linear-gradient(90deg, rgba(43, 28, 51, 0.05) 25%, rgba(43, 28, 51, 0.12) 50%, rgba(43, 28, 51, 0.05) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 4px;
 }
 
-/* Pulse Glow */
+/* Amber Flare Glow Effect */
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 15px rgba(255, 140, 18, 0.4); }
-  50% { box-shadow: 0 0 25px rgba(255, 140, 18, 0.7); }
+  0%, 100% { box-shadow: 0 0 14px rgba(255, 140, 18, 0.4); }
+  50% { box-shadow: 0 0 24px rgba(255, 140, 18, 0.7); }
 }
 
 .glow-active {
@@ -255,11 +260,12 @@ body {
   gap: 12px;
   padding: 12px 18px;
   background: var(--bg-surface-elevated);
-  border: 1px solid rgba(217, 211, 204, 0.35);
+  border: 1px solid var(--border-card);
   color: var(--text-primary);
-  border-radius: 8px;
-  box-shadow: 0 12px 28px -4px rgba(18, 10, 22, 0.6);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px -4px rgba(43, 28, 51, 0.2);
   font-size: 0.875rem;
+  font-weight: 500;
   transform: translateY(10px);
   opacity: 0;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -271,21 +277,21 @@ body {
 }
 
 .toast.toast-success {
-  border-left: 4px solid var(--accent-primary);
+  border-left: 5px solid var(--accent-primary);
 }
 .toast.toast-error {
-  border-left: 4px solid var(--color-danger);
+  border-left: 5px solid var(--color-danger);
 }
 .toast.toast-info {
-  border-left: 4px solid var(--accent-primary);
+  border-left: 5px solid var(--accent-primary);
 }
 
 /* Modal Backdrop */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(22, 13, 27, 0.82);
-  backdrop-filter: blur(6px);
+  background: rgba(43, 28, 51, 0.65);
+  backdrop-filter: blur(5px);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -302,14 +308,14 @@ body {
 
 .modal-content {
   background: var(--bg-surface);
-  border: 1px solid rgba(217, 211, 204, 0.35);
+  border: 1px solid var(--border-card);
   border-radius: 14px;
   width: 90%;
   max-width: 780px;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 60px -10px rgba(10, 5, 14, 0.75);
+  box-shadow: 0 25px 60px -10px rgba(43, 28, 51, 0.35);
   transform: scale(0.95);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
@@ -319,12 +325,12 @@ body {
   transform: scale(1);
 }
 
-/* Table Enhancements with Prominent Pebble Silk Header & Grid */
+/* Table Enhancements: Eclipse Plum Header (20%) & Pebble Silk Grid (60%) */
 .data-table-container {
   overflow: auto;
-  border-radius: 8px;
-  border: 1px solid rgba(217, 211, 204, 0.25);
-  background: #1F1325;
+  border-radius: 10px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-surface-elevated);
 }
 
 .data-table {
@@ -336,37 +342,42 @@ body {
 .data-table th {
   position: sticky;
   top: 0;
-  background: rgba(217, 211, 204, 0.16);
-  color: var(--color-silk);
-  font-weight: 600;
+  background: #2B1C33;
+  color: #D9D3CC;
+  font-weight: 700;
   text-align: left;
-  padding: 11px 16px;
-  border-bottom: 2px solid rgba(217, 211, 204, 0.35);
+  padding: 12px 16px;
+  border-bottom: 2px solid #FF8C12;
   white-space: nowrap;
   user-select: none;
   font-size: 0.78rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  z-index: 5;
 }
 
 .data-table th:hover {
-  background: rgba(217, 211, 204, 0.25);
+  background: #3B2745;
   color: #FFFFFF;
   cursor: pointer;
 }
 
 .data-table td {
-  padding: 10px 16px;
-  border-bottom: 1px solid rgba(217, 211, 204, 0.15);
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
   max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  background: var(--bg-surface-elevated);
+}
+
+.data-table tr:nth-child(even) td {
+  background: rgba(43, 28, 51, 0.03);
 }
 
 .data-table tr:hover td {
-  background: rgba(217, 211, 204, 0.12);
-  color: #FFFFFF;
+  background: rgba(255, 140, 18, 0.1);
   cursor: pointer;
 }

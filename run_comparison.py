@@ -25,6 +25,7 @@ MODEL_PRESETS = {
     "vennify/t5-base-grammar-correction": "grammar:",
     "google/flan-t5-small": "",
     "vennify/t5-small-grammar-correction": "grammar:",
+    "oliverguhr/spelling-correction-english-base": "",
 }
 
 

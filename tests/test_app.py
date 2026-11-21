@@ -56,6 +56,8 @@ def test_api_explain_word(server_url):
         assert data["in_vocabulary"] is False
         assert data["corrected"] == "receive"
         assert data["distance"] == 2
+        assert "soundex" in data
+        assert "damerau_distance" in data
         assert len(data["candidates"]) > 0
 
 
@@ -79,6 +81,8 @@ def test_api_correct_baseline(server_url):
         assert len(data["corrections"]) == 3
         assert data["baseline_accuracy"] == 1.0
         assert data["baseline_f1"] == 1.0
+        assert "baseline_cer" in data
+        assert "baseline_wer" in data
 
 
 def test_api_csv_list_and_read(server_url):

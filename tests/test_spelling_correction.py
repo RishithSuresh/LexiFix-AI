@@ -1,7 +1,12 @@
 from spelling_correction import (
     NoisyChannelSpellCorrector,
+    _damerau_levenshtein_distance,
+    _soundex,
+    character_error_rate,
     correction_metrics,
+    sentence_exact_match,
     word_accuracy,
+    word_error_rate,
 )
 
 
@@ -64,3 +69,24 @@ def test_unmatched_word_is_left_unchanged():
     assert correction.corrected == "zzzz"
     assert correction.distance == -1
     assert correction.confidence == 0.0
+
+
+def test_soundex_phonetic_matching():
+    assert _soundex("frend") == _soundex("friend")
+    assert _soundex("recieve") == _soundex("receive")
+    assert _soundex("definitely") == _soundex("definately")
+
+
+def test_damerau_transposition_distance():
+    # Adjacent transposition is distance 1 in Damerau
+    assert _damerau_levenshtein_distance("recieve", "receive") == 1
+    assert _damerau_levenshtein_distance("cat", "act") == 1
+
+
+def test_character_and_word_error_rate():
+    assert character_error_rate("hello", "hello") == 0.0
+    assert character_error_rate("hello", "helo") == 0.2
+    assert word_error_rate("one two three", "one two three") == 0.0
+    assert word_error_rate("one two three", "one three") == round(1 / 3, 4)
+    assert sentence_exact_match("Hello World!", "hello world!") is True
+

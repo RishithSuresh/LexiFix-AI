@@ -1,15 +1,15 @@
 /**
  * LexiFix AI — Modern Interactive Application Logic
- * Colour Palette:
- * 1. Eclipse Plum (#2B1C33) - 50%
- * 2. Pebble Silk (#D9D3CC) - 30% (Prominently Integrated)
- * 3. Amber Flare (#FF8C12) - 20%
+ * Proportional Colour Palette:
+ * 1. Pebble Silk  (#D9D3CC) - 60% (Dominant Canvas & Surfaces)
+ * 2. Eclipse Plum (#2B1C33) - 20% (Structural Framing & Deep Typography)
+ * 3. Amber Flare  (#FF8C12) - 20% (Radiant Energy, CTAs & Accents)
  */
 
 // Application State
 const state = {
   currentView: 'studio',
-  theme: localStorage.getItem('lexifix_theme') || 'dark',
+  theme: localStorage.getItem('lexifix_theme') || 'light',
   lastResult: null,
   isProcessing: false,
   csvFiles: [],
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadCsvFileList();
   updateInputStats();
   
-  // Explain default word
+  // Explain default sample word
   explainWord('recieve');
 });
 
@@ -119,13 +119,14 @@ function cacheDOMElements() {
   dom.explainVocabStatus = document.getElementById('explain-vocab-status');
   dom.explainBestWord = document.getElementById('explain-best-word');
   dom.explainDistance = document.getElementById('explain-distance');
+  dom.explainSoundex = document.getElementById('explain-soundex');
   dom.explainConfidence = document.getElementById('explain-confidence');
   dom.explainCandidatesList = document.getElementById('explain-candidates-list');
   dom.statVocabSize = document.getElementById('stat-vocab-size');
   dom.statCorpusTokens = document.getElementById('stat-corpus-tokens');
   dom.topLexiconChips = document.getElementById('top-lexicon-chips');
 
-  // Modals & General
+  // Modals & Header
   dom.btnThemeToggle = document.getElementById('btn-theme-toggle');
   dom.themeIconSun = document.getElementById('theme-icon-sun');
   dom.themeIconMoon = document.getElementById('theme-icon-moon');
@@ -136,7 +137,6 @@ function cacheDOMElements() {
   dom.btnCloseModal = document.getElementById('btn-close-modal');
   dom.modalBodyContent = document.getElementById('modal-body-content');
   dom.settingsThemeSelect = document.getElementById('settings-theme-select');
-  dom.toastContainer = document.getElementById('toast-container');
 }
 
 function bindEvents() {
@@ -145,32 +145,45 @@ function bindEvents() {
     btn.addEventListener('click', () => switchView(btn.dataset.nav));
   });
 
-  // Theme Toggle
+  // Theme toggle
   dom.btnThemeToggle.addEventListener('click', toggleTheme);
-  dom.settingsThemeSelect.addEventListener('change', (e) => applyTheme(e.target.value));
+  if (dom.settingsThemeSelect) {
+    dom.settingsThemeSelect.addEventListener('change', (e) => applyTheme(e.target.value));
+  }
 
-  // Studio Events
+  // Real-time input analysis
   dom.inputText.addEventListener('input', updateInputStats);
   dom.btnClearInput.addEventListener('click', () => {
     dom.inputText.value = '';
     updateInputStats();
+    dom.inputText.focus();
   });
 
+  // Expected Ground Truth toggle
   dom.btnToggleExpected.addEventListener('click', () => {
     dom.expectedContainer.classList.remove('hidden');
-    dom.btnToggleExpected.classList.add('hidden');
+    dom.expectedText.focus();
   });
-
   dom.btnRemoveExpected.addEventListener('click', () => {
     dom.expectedContainer.classList.add('hidden');
     dom.expectedText.value = '';
-    dom.btnToggleExpected.classList.remove('hidden');
   });
 
+  // Slider edit distance
   dom.sliderMaxDistance.addEventListener('input', (e) => {
     dom.labelMaxDistance.textContent = `${e.target.value} edit${e.target.value > 1 ? 's' : ''}`;
   });
 
+  // Quick sample chips
+  dom.sampleChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      dom.inputText.value = chip.dataset.sample;
+      updateInputStats();
+      triggerCorrection();
+    });
+  });
+
+  // Custom model drawer
   dom.btnToggleCustom.addEventListener('click', () => {
     dom.customModelDrawer.classList.toggle('hidden');
     if (!dom.customModelDrawer.classList.contains('hidden')) {
@@ -178,29 +191,23 @@ function bindEvents() {
     }
   });
 
-  dom.sampleChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      dom.inputText.value = chip.dataset.sample;
-      updateInputStats();
-      showToast('Loaded sample text', 'info');
-    });
-  });
-
+  // Main Action: Correct & Compare
   dom.btnCorrect.addEventListener('click', triggerCorrection);
 
-  // View Mode Switcher buttons
+  // Dynamic View Mode Toggling (Diff vs Clean vs Explain)
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.view-mode-btn');
     if (btn) {
+      const parent = btn.parentElement;
       const target = btn.dataset.target;
       const mode = btn.dataset.mode;
-      const group = btn.parentElement.querySelectorAll('.view-mode-btn');
-      group.forEach(b => {
+
+      parent.querySelectorAll('.view-mode-btn').forEach(b => {
         b.classList.remove('active', 'bg-[#FF8C12]', 'text-[#2B1C33]', 'font-bold');
-        b.classList.add('text-[#D9D3CC]');
+        b.classList.add('text-[#4E3758]');
       });
       btn.classList.add('active', 'bg-[#FF8C12]', 'text-[#2B1C33]', 'font-bold');
-      btn.classList.remove('text-[#D9D3CC]');
+      btn.classList.remove('text-[#4E3758]');
       toggleCardViewMode(target, mode);
     }
 
@@ -271,10 +278,11 @@ function switchView(viewName) {
   dom.navButtons.forEach(btn => {
     const isActive = btn.dataset.nav === viewName;
     btn.classList.toggle('active', isActive);
-    btn.classList.toggle('bg-[#FF8C12]/15', isActive);
-    btn.classList.toggle('text-[#FF8C12]', isActive);
-    btn.classList.toggle('border-[#FF8C12]/45', isActive);
-    btn.classList.toggle('text-[#D9D3CC]', !isActive);
+    btn.classList.toggle('bg-[#FF8C12]/20', isActive);
+    btn.classList.toggle('border-[#FF8C12]/60', isActive);
+    btn.classList.toggle('text-[#2B1C33]', isActive);
+    btn.classList.toggle('font-bold', isActive);
+    btn.classList.toggle('text-[#4E3758]', !isActive);
   });
 
   Object.entries(dom.views).forEach(([name, el]) => {
@@ -301,61 +309,47 @@ function toggleTheme() {
   applyTheme(state.theme === 'dark' ? 'light' : 'dark');
 }
 
-// ----------------- Toast Notifications -----------------
-
-function showToast(message, type = 'info') {
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.innerHTML = `
-    <span>${message}</span>
-  `;
-  dom.toastContainer.appendChild(toast);
-  requestAnimationFrame(() => toast.classList.add('show'));
-
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 300);
-  }, 3500);
-}
-
-// ----------------- Live Studio Logic -----------------
+// ----------------- Real-Time Token Analysis -----------------
 
 function updateInputStats() {
   const text = dom.inputText.value;
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const words = (text.match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) || []);
   const chars = text.length;
 
-  dom.statWords.textContent = `${words} word${words !== 1 ? 's' : ''}`;
-  dom.statChars.textContent = `${chars} character${chars !== 1 ? 's' : ''}`;
+  dom.statWords.textContent = `${words.length} word${words.length === 1 ? '' : 's'}`;
+  dom.statChars.textContent = `${chars} character${chars === 1 ? '' : 's'}`;
 
-  // Quick offline vocabulary check for detected unknowns
-  if (state.vocabulary && state.vocabulary.set && words > 0) {
-    const tokens = text.match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) || [];
-    const unknowns = [...new Set(tokens.filter(t => !state.vocabulary.set.has(t.toLowerCase())))];
-    if (unknowns.length > 0) {
-      dom.detectedBadge.textContent = `${unknowns.length} error${unknowns.length > 1 ? 's' : ''} detected`;
-      dom.detectedBadge.className = 'px-2 py-0.5 rounded-full bg-[#FF8C12]/20 text-[#FF8C12] text-[10px] font-mono border border-[#FF8C12]/40 font-bold';
-      dom.liveDetectedPreview.textContent = `(${unknowns.slice(0, 3).join(', ')}${unknowns.length > 3 ? '...' : ''})`;
+  if (state.vocabulary.set && state.vocabulary.set.size > 0) {
+    const unknownWords = words.filter(w => !state.vocabulary.set.has(w.toLowerCase()));
+    const uniqueUnknown = [...new Set(unknownWords.map(w => w.toLowerCase()))];
+    const count = uniqueUnknown.length;
+
+    dom.detectedBadge.textContent = `${count} error${count === 1 ? '' : 's'} detected`;
+    if (count > 0) {
+      dom.detectedBadge.className = 'px-2 py-0.5 rounded-full bg-[#FF8C12]/20 text-[#B85B00] text-[10px] font-mono border border-[#FF8C12]/40 font-bold';
+      dom.liveDetectedPreview.textContent = `(${uniqueUnknown.slice(0, 3).join(', ')}${count > 3 ? '...' : ''})`;
     } else {
-      dom.detectedBadge.textContent = '0 errors detected';
-      dom.detectedBadge.className = 'px-2 py-0.5 rounded-full bg-[#D9D3CC]/15 text-[#D9D3CC] text-[10px] font-mono border border-[#D9D3CC]/30 font-semibold';
+      dom.detectedBadge.className = 'px-2 py-0.5 rounded-full bg-[#2B1C33]/10 text-[#2B1C33] text-[10px] font-mono border border-[#2B1C33]/20 font-medium';
       dom.liveDetectedPreview.textContent = '';
     }
   }
 }
 
+// ----------------- Studio Correction Core -----------------
+
 async function triggerCorrection() {
   const text = dom.inputText.value.trim();
   if (!text) {
-    showToast('Please enter text to correct', 'error');
+    showToast('Please enter some text to correct.', 'error');
     return;
   }
 
-  // Selected models
+  // Gather selected models
   const selectedModels = [];
-  dom.modelChecks.forEach(ch => {
-    if (ch.checked) selectedModels.push(ch.value);
+  dom.modelChecks.forEach(chk => {
+    if (chk.checked) selectedModels.push(chk.value);
   });
+
   const customModel = dom.inputCustomModel.value.trim();
   if (customModel && !selectedModels.includes(customModel)) {
     selectedModels.push(customModel);
@@ -364,39 +358,38 @@ async function triggerCorrection() {
   const maxDistance = parseInt(dom.sliderMaxDistance.value, 10);
   const expectedText = dom.expectedText.value.trim();
 
-  // Update UI to running state
+  // Set processing state
   state.isProcessing = true;
   dom.btnCorrect.disabled = true;
   dom.correctSpinner.classList.remove('hidden');
   dom.correctBtnText.textContent = 'Processing...';
 
-  renderShimmerSkeletons(selectedModels);
+  // Render Skeleton Placeholders for LLMs
+  renderLoadingSkeleton(selectedModels);
 
   try {
     const response = await fetch('/api/correct', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text,
-        models: selectedModels,
+        text: text,
+        expected_text: expectedText,
         max_distance: maxDistance,
-        expected_text: expectedText
+        models: selectedModels
       })
     });
 
     if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || 'Server error occurred');
+      throw new Error(`Server returned HTTP ${response.status}`);
     }
 
     const data = await response.json();
     state.lastResult = data;
     renderResults(data);
     dom.exportBar.classList.remove('hidden');
-    showToast('Correction & comparison complete', 'success');
-  } catch (error) {
-    console.error(error);
-    showToast(`Error: ${error.message}`, 'error');
+
+  } catch (err) {
+    showToast(`Execution error: ${err.message}`, 'error');
   } finally {
     state.isProcessing = false;
     dom.btnCorrect.disabled = false;
@@ -405,9 +398,9 @@ async function triggerCorrection() {
   }
 }
 
-function renderShimmerSkeletons(selectedModels) {
+function renderLoadingSkeleton(selectedModels) {
   dom.baselineOutputDiff.innerHTML = `
-    <div class="space-y-2 w-full py-1">
+    <div class="space-y-2 w-full">
       <div class="skeleton h-4 w-3/4"></div>
       <div class="skeleton h-4 w-1/2"></div>
     </div>
@@ -416,15 +409,15 @@ function renderShimmerSkeletons(selectedModels) {
   dom.baselineOutputExplain.innerHTML = '';
 
   dom.llmCardsGrid.innerHTML = selectedModels.map(model => `
-    <div class="surface-card p-5 space-y-4 border border-[#D9D3CC]/25 border-l-4 border-l-[#FF8C12]">
+    <div class="surface-card p-5 space-y-4 border border-[#2B1C33]/20 border-l-4 border-l-[#FF8C12]">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-[#FF8C12] animate-pulse"></span>
-          <h3 class="font-bold text-sm tracking-wide text-[#D9D3CC]">${escapeHtml(model)}</h3>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FF8C12]/20 text-[#FF8C12] font-semibold border border-[#FF8C12]/30">Processing...</span>
+          <h3 class="font-bold text-sm tracking-wide text-[#2B1C33]">${escapeHtml(model)}</h3>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FF8C12]/20 text-[#B85B00] font-bold border border-[#FF8C12]/40">Processing...</span>
         </div>
       </div>
-      <div class="p-4 bg-[#1F1325] rounded-xl border border-[#D9D3CC]/25 space-y-2">
+      <div class="p-4 bg-[#FFFFFF] rounded-xl border border-[#2B1C33]/20 space-y-2 shadow-inner">
         <div class="skeleton h-4 w-5/6"></div>
         <div class="skeleton h-4 w-2/3"></div>
       </div>
@@ -440,29 +433,30 @@ function renderResults(data) {
   dom.baselineOutputDiff.innerHTML = generateTokenDiffHtml(original, baseline);
   dom.baselineOutputClean.textContent = baseline;
 
-  // 2. Baseline Explainability Chips prominently styled in Pebble Silk
+  // 2. Baseline Explainability Chips
   if (data.corrections && data.corrections.length > 0) {
     dom.baselineOutputExplain.innerHTML = `
       <div class="space-y-2">
-        <span class="text-xs font-bold text-[#D9D3CC]">Token-Level Diagnostic Breakdown:</span>
+        <span class="text-xs font-bold text-[#2B1C33]">Multi-Signal Token Diagnostic Breakdown:</span>
         <div class="flex flex-wrap gap-2">
           ${data.corrections.map(c => `
-            <div class="correction-pill" title="Edit distance: ${c.distance}, Confidence: ${(c.confidence * 100).toFixed(0)}%">
-              <span class="text-[#F87171] line-through">${escapeHtml(c.original)}</span>
-              <span class="text-[#D9D3CC]/60 font-bold">→</span>
-              <span class="text-[#FF8C12] font-bold">${escapeHtml(c.corrected)}</span>
-              <span class="text-[10px] text-[#D9D3CC] px-1.5 py-0.5 rounded bg-[#D9D3CC]/20 border border-[#D9D3CC]/30 font-bold">d=${c.distance}</span>
-              <span class="text-[10px] text-[#D9D3CC] font-mono">${(c.confidence * 100).toFixed(0)}%</span>
+            <div class="correction-pill" title="Levenshtein: ${c.distance}, Damerau: ${c.damerau_distance || c.distance}, Confidence: ${(c.confidence * 100).toFixed(0)}%">
+              <span class="text-[#D92546] line-through font-semibold">${escapeHtml(c.original)}</span>
+              <span class="text-[#4E3758] font-bold">→</span>
+              <span class="text-[#B85B00] font-bold">${escapeHtml(c.corrected)}</span>
+              <span class="text-[10px] text-[#2B1C33] px-1.5 py-0.5 rounded bg-[#FAF7F4] border border-[#2B1C33]/20 font-bold">d=${c.distance}</span>
+              ${c.phonetic_match ? `<span class="text-[9px] text-[#B85B00] bg-[#FF8C12]/20 px-1 py-0.5 rounded border border-[#FF8C12]/40 font-bold">Soundex Match</span>` : ''}
+              <span class="text-[10px] text-[#4E3758] font-mono font-bold">${(c.confidence * 100).toFixed(0)}%</span>
             </div>
           `).join('')}
         </div>
       </div>
     `;
   } else {
-    dom.baselineOutputExplain.innerHTML = `<span class="text-xs text-[#D9D3CC]/80 font-medium">No spelling modifications detected in vocabulary.</span>`;
+    dom.baselineOutputExplain.innerHTML = `<span class="text-xs text-[#4E3758] font-medium">No spelling modifications detected in vocabulary.</span>`;
   }
 
-  // 3. Baseline Metrics with Pebble Silk labels
+  // 3. Baseline Metrics with CER and WER support
   if (data.expected_text) {
     dom.baselineMetricsBar.classList.remove('hidden');
     dom.mBaselineAcc.textContent = `${(data.baseline_accuracy * 100).toFixed(1)}%`;
@@ -474,57 +468,58 @@ function renderResults(data) {
   }
   dom.baselineLatency.textContent = `Latency: ${data.baseline_latency_ms || 0}ms`;
 
-  // 4. Render LLM Output Cards with Pebble Silk Framing & Amber Flare Accents
+  // 4. Render LLM Output Cards
   if (data.llm_results && data.llm_results.length > 0) {
     dom.llmCardsGrid.innerHTML = data.llm_results.map((llm, idx) => {
       const isOk = llm.status === 'ok';
       const cardId = `llm-card-${idx}`;
       return `
-        <div id="${cardId}" class="surface-card p-5 space-y-4 border border-[#D9D3CC]/25 border-l-4 border-l-[#FF8C12]">
+        <div id="${cardId}" class="surface-card p-5 space-y-4 border border-[#2B1C33]/20 border-l-4 border-l-[#FF8C12]">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div class="flex items-center gap-2.5">
-              <span class="w-3 h-3 rounded-full ${isOk ? 'bg-[#FF8C12] shadow shadow-[#FF8C12]/50' : 'bg-rose-500'}"></span>
-              <h3 class="font-bold text-sm tracking-wide text-[#D9D3CC]">${escapeHtml(llm.model)}</h3>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded ${isOk ? 'bg-[#D9D3CC]/15 text-[#D9D3CC] border border-[#D9D3CC]/30 font-semibold' : 'bg-rose-500/20 text-rose-300'}">
+              <span class="w-3 h-3 rounded-full ${isOk ? 'bg-[#FF8C12] shadow shadow-[#FF8C12]/50' : 'bg-[#D92546]'}"></span>
+              <h3 class="font-bold text-sm tracking-wide text-[#2B1C33]">${escapeHtml(llm.model)}</h3>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded ${isOk ? 'bg-[#2B1C33]/10 text-[#2B1C33] border border-[#2B1C33]/20 font-bold' : 'bg-rose-500/20 text-rose-700 font-bold'}">
                 ${isOk ? 'Transformer' : 'Error'}
               </span>
-              ${isOk ? `<span class="text-[10px] font-mono text-[#D9D3CC] bg-[#D9D3CC]/10 px-2 py-0.5 rounded border border-[#D9D3CC]/20">${llm.latency_ms || 0}ms</span>` : ''}
+              ${isOk ? `<span class="text-[10px] font-mono text-[#4E3758] bg-[#FAF7F4] px-2 py-0.5 rounded border border-[#2B1C33]/20 font-semibold">${llm.latency_ms || 0}ms</span>` : ''}
             </div>
 
             ${isOk ? `
               <div class="flex items-center gap-2">
-                <div class="bg-[#221528] p-0.5 rounded-lg border border-[#D9D3CC]/30 flex text-xs">
+                <div class="bg-[#FAF7F4] p-0.5 rounded-lg border border-[#2B1C33]/20 flex text-xs">
                   <button class="view-mode-btn active px-2.5 py-1 rounded-md text-[#2B1C33] bg-[#FF8C12] font-bold" data-target="llm-${idx}" data-mode="diff">Visual Diff</button>
-                  <button class="view-mode-btn px-2.5 py-1 rounded-md text-[#D9D3CC] hover:text-white" data-target="llm-${idx}" data-mode="clean">Clean Text</button>
+                  <button class="view-mode-btn px-2.5 py-1 rounded-md text-[#4E3758] hover:text-[#2B1C33]" data-target="llm-${idx}" data-mode="clean">Clean Text</button>
                 </div>
 
-                <button class="btn-copy silk-btn p-1.5 rounded-lg text-[#D9D3CC] hover:text-[#FF8C12] transition-colors" data-copy-target="llm-${idx}" title="Copy output">
+                <button class="btn-copy silk-btn p-1.5 rounded-lg text-[#2B1C33] hover:text-[#FF8C12] transition-colors" data-copy-target="llm-${idx}" title="Copy output">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                 </button>
               </div>
             ` : ''}
           </div>
 
-          <div class="p-4 bg-[#1F1325] rounded-xl border border-[#D9D3CC]/25 min-h-[64px]">
+          <div class="p-4 bg-[#FFFFFF] rounded-xl border border-[#2B1C33]/20 min-h-[64px] shadow-inner">
             ${isOk ? `
-              <div id="llm-${idx}-output-diff" class="diff-container text-[#D9D3CC]">
+              <div id="llm-${idx}-output-diff" class="diff-container text-[#2B1C33]">
                 ${generateTokenDiffHtml(original, llm.text)}
               </div>
-              <div id="llm-${idx}-output-clean" class="hidden text-[#D9D3CC] text-sm font-sans leading-relaxed">${escapeHtml(llm.text)}</div>
+              <div id="llm-${idx}-output-clean" class="hidden text-[#2B1C33] text-sm font-sans leading-relaxed">${escapeHtml(llm.text)}</div>
             ` : `
-              <div class="text-rose-400 text-xs font-mono p-2 bg-rose-950/30 rounded border border-rose-900/50">
+              <div class="text-[#D92546] text-xs font-mono p-2 bg-rose-500/10 rounded border border-rose-500/30">
                 ${escapeHtml(llm.error || 'Failed to generate output from model')}
               </div>
             `}
           </div>
 
           ${(isOk && data.expected_text) ? `
-            <div class="pt-2 border-t border-[#D9D3CC]/20 flex flex-wrap items-center justify-between text-xs text-[#D9D3CC] font-mono">
+            <div class="pt-2 border-t border-[#2B1C33]/15 flex flex-wrap items-center justify-between text-xs text-[#2B1C33] font-mono">
               <div class="flex items-center gap-4">
-                <span>Accuracy: <strong class="text-[#FF8C12]">${(llm.accuracy * 100).toFixed(1)}%</strong></span>
-                <span>Precision: <strong class="text-[#D9D3CC]">${llm.precision.toFixed(2)}</strong></span>
-                <span>Recall: <strong class="text-[#D9D3CC]">${llm.recall.toFixed(2)}</strong></span>
-                <span>F1 Score: <strong class="text-[#FF8C12]">${llm.f1.toFixed(2)}</strong></span>
+                <span>Accuracy: <strong class="text-[#B85B00]">${(llm.accuracy * 100).toFixed(1)}%</strong></span>
+                <span>Precision: <strong class="text-[#2B1C33]">${llm.precision.toFixed(2)}</strong></span>
+                <span>Recall: <strong class="text-[#2B1C33]">${llm.recall.toFixed(2)}</strong></span>
+                <span>F1 Score: <strong class="text-[#B85B00]">${llm.f1.toFixed(2)}</strong></span>
+                ${llm.cer !== undefined ? `<span class="text-[#4E3758]">CER: <strong>${(llm.cer * 100).toFixed(1)}%</strong></span>` : ''}
               </div>
             </div>
           ` : ''}
@@ -552,33 +547,20 @@ function toggleCardViewMode(target, mode) {
 }
 
 function copyCardOutput(target) {
-  let textToCopy = '';
+  let text = '';
   if (target === 'baseline') {
-    textToCopy = dom.baselineOutputClean.textContent;
-  } else if (target.startsWith('llm-')) {
+    text = dom.baselineOutputClean.textContent;
+  } else {
     const cleanEl = document.getElementById(`${target}-output-clean`);
-    if (cleanEl) textToCopy = cleanEl.textContent;
+    if (cleanEl) text = cleanEl.textContent;
   }
-  if (textToCopy) {
-    navigator.clipboard.writeText(textToCopy);
-    showToast('Copied to clipboard', 'success');
-  }
-}
 
-async function saveRunToCsv() {
-  if (!state.lastResult) return;
-  try {
-    const res = await fetch('/api/csv/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state.lastResult)
+  if (text) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Copied to clipboard!', 'success');
+    }).catch(() => {
+      showToast('Failed to copy text', 'error');
     });
-    if (!res.ok) throw new Error('Failed to save to CSV');
-    const result = await res.json();
-    showToast(`Saved to ${result.filename}!`, 'success');
-    loadCsvFileList(result.filename);
-  } catch (err) {
-    showToast(`Save failed: ${err.message}`, 'error');
   }
 }
 
@@ -586,76 +568,135 @@ async function saveRunToCsv() {
 
 function generateTokenDiffHtml(source, target) {
   if (!source || !target) return escapeHtml(target || '');
-  if (source.trim() === target.trim()) return `<span>${escapeHtml(target)}</span>`;
 
-  // Tokenize preserving whitespace & punctuation
-  const tokenize = (text) => text.split(/(\s+|[.,!?;:"]+)/).filter(Boolean);
-  const srcTokens = tokenize(source);
-  const tgtTokens = tokenize(target);
+  const srcTokens = tokenizeWords(source);
+  const tgtTokens = tokenizeWords(target);
 
-  let sIdx = 0;
-  let tIdx = 0;
-  let html = '';
+  // Dynamic programming alignment (Levenshtein on word tokens)
+  const dp = Array(srcTokens.length + 1).fill(null).map(() => Array(tgtTokens.length + 1).fill(0));
 
-  while (sIdx < srcTokens.length || tIdx < tgtTokens.length) {
-    const s = srcTokens[sIdx];
-    const t = tgtTokens[tIdx];
+  for (let i = 0; i <= srcTokens.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= tgtTokens.length; j++) dp[0][j] = j;
 
-    if (s === t) {
-      html += `<span>${escapeHtml(t)}</span>`;
-      sIdx++;
-      tIdx++;
-    } else if (s && !t) {
-      // Deletion
-      html += `<span class="diff-del">${escapeHtml(s)}</span>`;
-      sIdx++;
-    } else if (!s && t) {
-      // Insertion in Amber Flare with Pebble Silk contrast
-      html += `<span class="diff-ins">${escapeHtml(t)}</span>`;
-      tIdx++;
-    } else {
-      const nextMatchInTgt = tgtTokens.indexOf(s, tIdx);
-      const nextMatchInSrc = srcTokens.indexOf(t, sIdx);
-
-      if (nextMatchInTgt !== -1 && (nextMatchInTgt - tIdx <= 2)) {
-        while (tIdx < nextMatchInTgt) {
-          html += `<span class="diff-ins">${escapeHtml(tgtTokens[tIdx])}</span>`;
-          tIdx++;
-        }
-      } else if (nextMatchInSrc !== -1 && (nextMatchInSrc - sIdx <= 2)) {
-        while (sIdx < nextMatchInSrc) {
-          html += `<span class="diff-del">${escapeHtml(srcTokens[sIdx])}</span>`;
-          sIdx++;
-        }
+  for (let i = 1; i <= srcTokens.length; i++) {
+    for (let j = 1; j <= tgtTokens.length; j++) {
+      if (srcTokens[i - 1].toLowerCase() === tgtTokens[j - 1].toLowerCase()) {
+        dp[i][j] = dp[i - 1][j - 1];
       } else {
-        html += `<span class="diff-del">${escapeHtml(s)}</span><span class="diff-ins">${escapeHtml(t)}</span>`;
-        sIdx++;
-        tIdx++;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,     // delete
+          dp[i][j - 1] + 1,     // insert
+          dp[i - 1][j - 1] + 1  // replace
+        );
       }
     }
   }
 
-  return html;
+  // Backtrack to extract diff sequence
+  let i = srcTokens.length;
+  let j = tgtTokens.length;
+  const ops = [];
+
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && srcTokens[i - 1].toLowerCase() === tgtTokens[j - 1].toLowerCase()) {
+      ops.push({ type: 'equal', text: tgtTokens[j - 1] });
+      i--;
+      j--;
+    } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + 1) {
+      ops.push({ type: 'replace', old: srcTokens[i - 1], new: tgtTokens[j - 1] });
+      i--;
+      j--;
+    } else if (j > 0 && dp[i][j] === dp[i][j - 1] + 1) {
+      ops.push({ type: 'insert', text: tgtTokens[j - 1] });
+      j--;
+    } else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
+      ops.push({ type: 'delete', text: srcTokens[i - 1] });
+      i--;
+    }
+  }
+
+  ops.reverse();
+
+  // Format into visual pills
+  return ops.map(op => {
+    if (op.type === 'equal') {
+      return `<span class="diff-token">${escapeHtml(op.text)}</span>`;
+    } else if (op.type === 'replace') {
+      return `<span class="diff-token"><span class="diff-del">${escapeHtml(op.old)}</span><span class="diff-ins">${escapeHtml(op.new)}</span></span>`;
+    } else if (op.type === 'insert') {
+      return `<span class="diff-token"><span class="diff-ins">${escapeHtml(op.text)}</span></span>`;
+    } else if (op.type === 'delete') {
+      return `<span class="diff-token"><span class="diff-del">${escapeHtml(op.text)}</span></span>`;
+    }
+  }).join(' ');
+}
+
+function tokenizeWords(str) {
+  const matches = str.match(/([A-Za-z]+(?:'[A-Za-z]+)?|[^\s\w]+|\s+)/g);
+  return matches ? matches.filter(t => t.trim().length > 0) : [];
+}
+
+// ----------------- Save Run to CSV -----------------
+
+async function saveRunToCsv() {
+  if (!state.lastResult) return;
+  const res = state.lastResult;
+
+  const row = {
+    input_text: res.input_text,
+    expected_text: res.expected_text || '',
+    baseline_text: res.baseline_text,
+    baseline_accuracy: (res.baseline_accuracy || 0).toFixed(4),
+    baseline_precision: (res.baseline_precision || 0).toFixed(4),
+    baseline_recall: (res.baseline_recall || 0).toFixed(4),
+    baseline_f1: (res.baseline_f1 || 0).toFixed(4)
+  };
+
+  if (res.llm_results && res.llm_results.length > 0) {
+    const firstLlm = res.llm_results[0];
+    row.llm_text = firstLlm.text;
+    row.llm_accuracy = (firstLlm.accuracy || 0).toFixed(4);
+    row.llm_precision = (firstLlm.precision || 0).toFixed(4);
+    row.llm_recall = (firstLlm.recall || 0).toFixed(4);
+    row.llm_f1 = (firstLlm.f1 || 0).toFixed(4);
+    row.llm_status = firstLlm.status;
+  }
+
+  try {
+    const response = await fetch('/api/csv/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: 'my_results.csv',
+        rows: [row]
+      })
+    });
+
+    const data = await response.json();
+    if (data.status === 'ok') {
+      showToast(`Appended row to my_results.csv (${data.total_rows} total rows)`, 'success');
+      loadCsvFileList('my_results.csv');
+    } else {
+      showToast(data.error || 'Failed to save', 'error');
+    }
+  } catch (err) {
+    showToast(`Error saving CSV: ${err.message}`, 'error');
+  }
 }
 
 // ----------------- CSV Explorer -----------------
 
-async function loadCsvFileList(autoSelectFile) {
+async function loadCsvFileList(selectFileName = '') {
   try {
     const res = await fetch('/api/csv/list');
     const files = await res.json();
     state.csvFiles = files;
 
     dom.csvFileSelect.innerHTML = files.map(f => `
-      <option value="${escapeHtml(f.name)}">${escapeHtml(f.name)} (${f.rows} rows • ${f.size_kb} KB)</option>
+      <option value="${f.name}">${f.name} (${f.rows} rows, ${f.size_kb} KB)</option>
     `).join('');
 
-    // Also populate Batch Cases selector
-    dom.batchCasesFile.innerHTML = files.filter(f => f.name.endsWith('.csv')).map(f => `
-      <option value="${escapeHtml(f.name)}">${escapeHtml(f.name)} (${f.rows} cases)</option>
-    `).join('');
-
-    const targetFile = autoSelectFile || (files[0] ? files[0].name : '');
+    const targetFile = selectFileName || (files.find(f => f.name === 'my_cases.csv') ? 'my_cases.csv' : (files[0] ? files[0].name : ''));
     if (targetFile) {
       dom.csvFileSelect.value = targetFile;
       loadCsvContent(targetFile);
@@ -667,115 +708,82 @@ async function loadCsvFileList(autoSelectFile) {
 
 async function loadCsvContent(filename) {
   state.currentCsvFile = filename;
+  dom.benchmarkTbody.innerHTML = `<tr><td class="text-center py-8 text-[#4E3758]" colspan="6">Loading ${filename}...</td></tr>`;
+
   try {
     const res = await fetch(`/api/csv/read?file=${encodeURIComponent(filename)}`);
-    if (!res.ok) throw new Error('Failed to read CSV');
     const data = await res.json();
     state.csvData = data;
     state.csvFilteredRows = [...data.rows];
-    state.csvSortCol = null;
 
-    updateKpiCards(data);
+    updateKpis(data.rows);
     renderCsvTable();
   } catch (err) {
-    showToast(`Failed to load CSV: ${err.message}`, 'error');
+    showToast(`Error loading CSV: ${err.message}`, 'error');
   }
 }
 
-function updateKpiCards(data) {
-  const rows = data.rows || [];
+function updateKpis(rows) {
   dom.kpiTotalCases.textContent = rows.length;
 
-  if (rows.length === 0) {
-    dom.kpiBaselineF1.textContent = '—';
-    dom.kpiLlmF1.textContent = '—';
-    dom.kpiAccuracyComp.textContent = '—';
-    return;
-  }
+  const baselineF1s = rows.map(r => parseFloat(r.baseline_f1)).filter(n => !isNaN(n));
+  const meanBaseF1 = baselineF1s.length ? (baselineF1s.reduce((a, b) => a + b, 0) / baselineF1s.length) : null;
+  dom.kpiBaselineF1.textContent = meanBaseF1 !== null ? meanBaseF1.toFixed(3) : '—';
 
-  // Calculate Mean Baseline F1
-  const bF1s = rows.map(r => parseFloat(r.baseline_f1)).filter(v => !isNaN(v));
-  if (bF1s.length > 0) {
-    const mean = bF1s.reduce((a, b) => a + b, 0) / bF1s.length;
-    dom.kpiBaselineF1.textContent = mean.toFixed(3);
-  } else {
-    dom.kpiBaselineF1.textContent = '—';
-  }
+  const llmF1s = rows.map(r => parseFloat(r.llm_f1)).filter(n => !isNaN(n));
+  const meanLlmF1 = llmF1s.length ? (llmF1s.reduce((a, b) => a + b, 0) / llmF1s.length) : null;
+  dom.kpiLlmF1.textContent = meanLlmF1 !== null ? meanLlmF1.toFixed(3) : '—';
 
-  // Calculate Mean LLM F1
-  let llmCol = 'llm_f1';
-  if (!data.headers.includes(llmCol)) {
-    const candidate = data.headers.find(h => h.endsWith('_f1') && h !== 'baseline_f1');
-    if (candidate) llmCol = candidate;
-  }
-  const lF1s = rows.map(r => parseFloat(r[llmCol])).filter(v => !isNaN(v));
-  if (lF1s.length > 0) {
-    const mean = lF1s.reduce((a, b) => a + b, 0) / lF1s.length;
-    dom.kpiLlmF1.textContent = mean.toFixed(3);
-  } else {
-    dom.kpiLlmF1.textContent = '—';
-  }
-
-  // Mean Word Accuracy
-  const bAccs = rows.map(r => parseFloat(r.baseline_accuracy)).filter(v => !isNaN(v));
-  if (bAccs.length > 0) {
-    const mean = bAccs.reduce((a, b) => a + b, 0) / bAccs.length;
-    dom.kpiAccuracyComp.textContent = `${(mean * 100).toFixed(1)}%`;
-  } else {
-    dom.kpiAccuracyComp.textContent = '—';
-  }
+  const baseAccs = rows.map(r => parseFloat(r.baseline_accuracy)).filter(n => !isNaN(n));
+  const meanBaseAcc = baseAccs.length ? (baseAccs.reduce((a, b) => a + b, 0) / baseAccs.length) : null;
+  dom.kpiAccuracyComp.textContent = meanBaseAcc !== null ? `${(meanBaseAcc * 100).toFixed(1)}%` : '—';
 }
 
 function renderCsvTable() {
-  const headers = state.csvData.headers || [];
-  const rows = state.csvFilteredRows || [];
+  const headers = state.csvData.headers;
+  const rows = state.csvFilteredRows;
 
   dom.csvRowCounter.textContent = `Showing ${rows.length} of ${state.csvData.rows.length} rows`;
 
-  if (headers.length === 0) {
-    dom.benchmarkThead.innerHTML = `<tr><th>No Columns</th></tr>`;
-    dom.benchmarkTbody.innerHTML = `<tr><td class="text-center py-6 text-[#D9D3CC]/60 font-medium">Empty file</td></tr>`;
+  if (!headers || headers.length === 0) {
+    dom.benchmarkThead.innerHTML = '<tr><th>No Data</th></tr>';
+    dom.benchmarkTbody.innerHTML = '<tr><td class="text-center py-8 text-[#4E3758]">Empty dataset</td></tr>';
     return;
   }
 
-  // Render Table Headers with sort indicator
-  dom.benchmarkThead.innerHTML = `<tr>${headers.map(h => `
-    <th class="table-sort-header" data-col="${escapeHtml(h)}">
-      <div class="flex items-center gap-1.5">
-        <span>${escapeHtml(h)}</span>
-        ${state.csvSortCol === h ? `<span>${state.csvSortAsc ? '↑' : '↓'}</span>` : ''}
-      </div>
-    </th>
-  `).join('')}</tr>`;
+  // Render Table Header with Sort Triggers
+  dom.benchmarkThead.innerHTML = `
+    <tr>
+      <th class="w-12 text-center">#</th>
+      ${headers.map(h => `
+        <th onclick="sortCsvBy('${h}')" title="Sort by ${h}">
+          <div class="flex items-center gap-1.5">
+            <span>${escapeHtml(h)}</span>
+            ${state.csvSortCol === h ? `<span class="text-[#FF8C12]">${state.csvSortAsc ? '▲' : '▼'}</span>` : ''}
+          </div>
+        </th>
+      `).join('')}
+    </tr>
+  `;
 
-  // Bind sort headers
-  dom.benchmarkThead.querySelectorAll('.table-sort-header').forEach(th => {
-    th.addEventListener('click', () => sortCsvByColumn(th.dataset.col));
-  });
-
-  // Render Rows in Pebble Silk
+  // Render Table Rows
   if (rows.length === 0) {
-    dom.benchmarkTbody.innerHTML = `<tr><td colspan="${headers.length}" class="text-center py-8 text-[#D9D3CC]/70 font-medium">No matching cases found</td></tr>`;
+    dom.benchmarkTbody.innerHTML = `<tr><td colspan="${headers.length + 1}" class="text-center py-8 text-[#4E3758]">No matching records found.</td></tr>`;
     return;
   }
 
-  dom.benchmarkTbody.innerHTML = rows.map((row, rowIdx) => `
-    <tr class="csv-row-item" data-row-idx="${rowIdx}">
+  dom.benchmarkTbody.innerHTML = rows.map((row, idx) => `
+    <tr onclick="inspectCsvRow(state.csvFilteredRows[${idx}])" title="Click to view full inspection">
+      <td class="text-center font-mono text-[11px] text-[#4E3758]">${idx + 1}</td>
       ${headers.map(h => {
         const val = row[h] || '';
-        const isNumeric = !isNaN(parseFloat(val)) && isFinite(val);
-        return `<td class="${isNumeric ? 'font-mono text-[#FF8C12] font-semibold' : 'text-[#D9D3CC]'}" title="${escapeHtml(val)}">${escapeHtml(val)}</td>`;
+        const isHigh = h.includes('f1') || h.includes('accuracy');
+        const numVal = parseFloat(val);
+        const highlightClass = isHigh && !isNaN(numVal) && numVal >= 0.99 ? 'text-[#B85B00] font-bold' : '';
+        return `<td class="${highlightClass}">${escapeHtml(val)}</td>`;
       }).join('')}
     </tr>
   `).join('');
-
-  // Row Inspection Modal binding
-  dom.benchmarkTbody.querySelectorAll('.csv-row-item').forEach(tr => {
-    tr.addEventListener('click', () => {
-      const idx = parseInt(tr.dataset.rowIdx, 10);
-      inspectCsvRow(rows[idx]);
-    });
-  });
 }
 
 function filterCsvTable() {
@@ -790,7 +798,7 @@ function filterCsvTable() {
   renderCsvTable();
 }
 
-function sortCsvByColumn(col) {
+function sortCsvBy(col) {
   if (state.csvSortCol === col) {
     state.csvSortAsc = !state.csvSortAsc;
   } else {
@@ -817,45 +825,45 @@ function inspectCsvRow(row) {
   dom.modalBodyContent.innerHTML = `
     <div class="space-y-4">
       <div>
-        <span class="text-[#D9D3CC] font-bold uppercase tracking-wider block mb-1">Input Text:</span>
-        <div class="p-3 bg-[#1F1325] rounded-lg border border-[#D9D3CC]/30 text-[#D9D3CC] font-sans text-sm">${escapeHtml(row.input_text || '—')}</div>
+        <span class="text-[#2B1C33] font-bold uppercase tracking-wider block mb-1">Input Text:</span>
+        <div class="p-3 bg-[#FFFFFF] rounded-lg border border-[#2B1C33]/20 text-[#2B1C33] font-sans text-sm shadow-inner">${escapeHtml(row.input_text || '—')}</div>
       </div>
 
       ${row.expected_text ? `
         <div>
-          <span class="text-[#D9D3CC] font-bold uppercase tracking-wider block mb-1">Expected Ground Truth:</span>
-          <div class="p-3 bg-[#1F1325] rounded-lg border border-[#D9D3CC]/30 text-[#FF8C12] font-sans text-sm font-semibold">${escapeHtml(row.expected_text)}</div>
+          <span class="text-[#2B1C33] font-bold uppercase tracking-wider block mb-1">Expected Ground Truth:</span>
+          <div class="p-3 bg-[#FFFFFF] rounded-lg border border-[#2B1C33]/20 text-[#B85B00] font-sans text-sm font-bold shadow-inner">${escapeHtml(row.expected_text)}</div>
         </div>
       ` : ''}
 
       <div>
-        <span class="text-[#D9D3CC] font-bold uppercase tracking-wider block mb-1">Baseline NLP Output:</span>
-        <div class="p-3 bg-[#1F1325] rounded-lg border border-[#D9D3CC]/30 text-[#D9D3CC] font-sans text-sm">${escapeHtml(row.baseline_text || '—')}</div>
-        <div class="mt-1 text-[#D9D3CC] font-mono text-[11px] flex gap-4">
-          <span>Accuracy: <strong class="text-[#FF8C12]">${row.baseline_accuracy || '—'}</strong></span>
-          <span>Precision: <strong class="text-[#D9D3CC]">${row.baseline_precision || '—'}</strong></span>
-          <span>Recall: <strong class="text-[#D9D3CC]">${row.baseline_recall || '—'}</strong></span>
-          <span>F1: <strong class="text-[#FF8C12]">${row.baseline_f1 || '—'}</strong></span>
+        <span class="text-[#2B1C33] font-bold uppercase tracking-wider block mb-1">Baseline NLP Output:</span>
+        <div class="p-3 bg-[#FFFFFF] rounded-lg border border-[#2B1C33]/20 text-[#2B1C33] font-sans text-sm shadow-inner">${escapeHtml(row.baseline_text || '—')}</div>
+        <div class="mt-1 text-[#2B1C33] font-mono text-[11px] flex gap-4">
+          <span>Accuracy: <strong class="text-[#B85B00]">${row.baseline_accuracy || '—'}</strong></span>
+          <span>Precision: <strong class="text-[#2B1C33]">${row.baseline_precision || '—'}</strong></span>
+          <span>Recall: <strong class="text-[#2B1C33]">${row.baseline_recall || '—'}</strong></span>
+          <span>F1: <strong class="text-[#B85B00]">${row.baseline_f1 || '—'}</strong></span>
         </div>
       </div>
 
       ${row.llm_text ? `
         <div>
-          <span class="text-[#D9D3CC] font-bold uppercase tracking-wider block mb-1">LLM Output:</span>
-          <div class="p-3 bg-[#1F1325] rounded-lg border border-[#D9D3CC]/30 text-[#D9D3CC] font-sans text-sm whitespace-pre-wrap">${escapeHtml(row.llm_text)}</div>
-          <div class="mt-1 text-[#D9D3CC] font-mono text-[11px] flex gap-4">
-            <span>Accuracy: <strong class="text-[#FF8C12]">${row.llm_accuracy || '—'}</strong></span>
-            <span>Precision: <strong class="text-[#D9D3CC]">${row.llm_precision || '—'}</strong></span>
-            <span>Recall: <strong class="text-[#D9D3CC]">${row.llm_recall || '—'}</strong></span>
-            <span>F1: <strong class="text-[#FF8C12]">${row.llm_f1 || '—'}</strong></span>
+          <span class="text-[#2B1C33] font-bold uppercase tracking-wider block mb-1">LLM Output:</span>
+          <div class="p-3 bg-[#FFFFFF] rounded-lg border border-[#2B1C33]/20 text-[#2B1C33] font-sans text-sm whitespace-pre-wrap shadow-inner">${escapeHtml(row.llm_text)}</div>
+          <div class="mt-1 text-[#2B1C33] font-mono text-[11px] flex gap-4">
+            <span>Accuracy: <strong class="text-[#B85B00]">${row.llm_accuracy || '—'}</strong></span>
+            <span>Precision: <strong class="text-[#2B1C33]">${row.llm_precision || '—'}</strong></span>
+            <span>Recall: <strong class="text-[#2B1C33]">${row.llm_recall || '—'}</strong></span>
+            <span>F1: <strong class="text-[#B85B00]">${row.llm_f1 || '—'}</strong></span>
           </div>
         </div>
       ` : ''}
 
-      <div class="pt-2 border-t border-[#D9D3CC]/25">
-        <span class="text-[#D9D3CC] font-bold uppercase tracking-wider block mb-1">Raw Record Fields:</span>
-        <div class="max-h-48 overflow-y-auto bg-[#1F1325] rounded p-2.5 text-[11px] font-mono space-y-1 border border-[#D9D3CC]/20">
-          ${Object.entries(row).map(([k, v]) => `<div><span class="text-[#C7BFB5] font-semibold">${escapeHtml(k)}:</span> <span class="text-[#D9D3CC]">${escapeHtml(v)}</span></div>`).join('')}
+      <div class="pt-2 border-t border-[#2B1C33]/20">
+        <span class="text-[#2B1C33] font-bold uppercase tracking-wider block mb-1">Raw Record Fields:</span>
+        <div class="max-h-48 overflow-y-auto bg-[#FFFFFF] rounded p-2.5 text-[11px] font-mono space-y-1 border border-[#2B1C33]/20 shadow-inner">
+          ${Object.entries(row).map(([k, v]) => `<div><span class="text-[#4E3758] font-bold">${escapeHtml(k)}:</span> <span class="text-[#2B1C33]">${escapeHtml(v)}</span></div>`).join('')}
         </div>
       </div>
     </div>
@@ -878,9 +886,14 @@ async function startBatchEvaluation() {
   dom.batchProgressBar.style.width = '10%';
   dom.batchProgressPct.textContent = '10%';
   dom.batchProgressStatus.textContent = `Starting evaluation of ${casesFile}...`;
-  dom.batchLogOutput.innerHTML = `<div>[${new Date().toLocaleTimeString()}] Initializing benchmark engine...</div>`;
+  dom.batchLogOutput.innerHTML = `<div>[${new Date().toLocaleTimeString()}] Initializing batch evaluation...</div>`;
 
   try {
+    dom.batchProgressBar.style.width = '40%';
+    dom.batchProgressPct.textContent = '40%';
+    dom.batchProgressStatus.textContent = 'Processing dataset cases through models...';
+    dom.batchLogOutput.innerHTML += `<div>[${new Date().toLocaleTimeString()}] Running baseline and LLMs on ${casesFile}...</div>`;
+
     const res = await fetch('/api/benchmark/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -891,25 +904,20 @@ async function startBatchEvaluation() {
       })
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Batch evaluation failed');
+    const data = await res.json();
+    if (data.status === 'ok') {
+      dom.batchProgressBar.style.width = '100%';
+      dom.batchProgressPct.textContent = '100%';
+      dom.batchProgressStatus.textContent = `Complete! Processed ${data.cases_processed} cases.`;
+      dom.batchLogOutput.innerHTML += `<div class="text-[#FF8C12] font-bold">[${new Date().toLocaleTimeString()}] Successfully saved results to ${data.output_file}</div>`;
+      showToast(`Batch completed: ${data.cases_processed} cases evaluated`, 'success');
+      loadCsvFileList(data.output_file);
+    } else {
+      throw new Error(data.error || 'Evaluation failed');
     }
-
-    const result = await res.json();
-    dom.batchProgressBar.style.width = '100%';
-    dom.batchProgressPct.textContent = '100%';
-    dom.batchProgressStatus.textContent = 'Benchmark Finished!';
-    dom.batchLogOutput.innerHTML += `
-      <div class="text-[#FF8C12] font-bold">[${new Date().toLocaleTimeString()}] Done! Evaluated ${result.cases_count} cases.</div>
-      <div class="text-[#D9D3CC] font-semibold">Saved to: ${result.output_file}</div>
-    `;
-
-    showToast(`Batch completed! Saved to ${result.output_file}`, 'success');
-    loadCsvFileList(result.output_file);
   } catch (err) {
     dom.batchProgressStatus.textContent = 'Error occurred';
-    dom.batchLogOutput.innerHTML += `<div class="text-rose-400">Error: ${err.message}</div>`;
+    dom.batchLogOutput.innerHTML += `<div class="text-[#D92546]">Error: ${err.message}</div>`;
     showToast(err.message, 'error');
   } finally {
     dom.btnStartBatch.disabled = false;
@@ -929,19 +937,25 @@ async function explainWord(word) {
     const data = await res.json();
 
     dom.explainVocabStatus.textContent = data.in_vocabulary ? 'In Vocabulary (Valid)' : 'Out of Vocabulary (Misspelled)';
-    dom.explainVocabStatus.className = `text-xs font-mono px-2.5 py-0.5 rounded ${data.in_vocabulary ? 'bg-[#D9D3CC]/20 text-[#D9D3CC] border border-[#D9D3CC]/35 font-bold' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold'}`;
+    dom.explainVocabStatus.className = `text-xs font-mono px-2.5 py-0.5 rounded ${data.in_vocabulary ? 'bg-emerald-500/15 text-emerald-800 border border-emerald-500/30 font-bold' : 'bg-rose-500/15 text-rose-800 border border-rose-500/30 font-bold'}`;
     dom.explainBestWord.textContent = data.corrected;
-    dom.explainDistance.textContent = `d = ${data.distance}`;
+    dom.explainDistance.textContent = `Lev: ${data.distance} | Dam: ${data.damerau_distance !== undefined ? data.damerau_distance : data.distance}`;
+    if (dom.explainSoundex) {
+      dom.explainSoundex.textContent = `Soundex: ${data.soundex || '—'}`;
+    }
     dom.explainConfidence.textContent = `${(data.confidence * 100).toFixed(0)}% (relative score)`;
 
     if (data.candidates && data.candidates.length > 0) {
       dom.explainCandidatesList.innerHTML = data.candidates.map(c => `
-        <span class="px-2.5 py-1 rounded bg-[#D9D3CC]/12 border border-[#D9D3CC]/30 text-[#D9D3CC] font-mono">
-          ${escapeHtml(c.word)} <span class="text-[#FF8C12] text-[10px] font-bold">d=${c.distance}</span> <span class="text-[#D9D3CC]/70 text-[10px]">f=${c.freq}</span>
+        <span class="px-2.5 py-1 rounded bg-[#FAF7F4] border border-[#2B1C33]/20 text-[#2B1C33] font-mono shadow-sm flex items-center gap-1.5">
+          <span class="font-bold">${escapeHtml(c.word)}</span>
+          <span class="text-[#B85B00] text-[10px] font-bold">d=${c.distance}</span>
+          ${c.phonetic_match ? `<span class="bg-[#FF8C12]/20 text-[#B85B00] px-1 py-0.2 rounded text-[9px] font-bold border border-[#FF8C12]/30">Soundex</span>` : ''}
+          <span class="text-[#4E3758] text-[10px]">f=${c.freq}</span>
         </span>
       `).join('');
     } else {
-      dom.explainCandidatesList.innerHTML = `<span class="text-[#D9D3CC]/60 italic">No candidates within distance threshold</span>`;
+      dom.explainCandidatesList.innerHTML = `<span class="text-[#4E3758] italic">No candidates within distance threshold</span>`;
     }
   } catch (err) {
     console.error(err);
@@ -959,8 +973,8 @@ async function loadVocabularyStats() {
     dom.statCorpusTokens.textContent = `${data.tokens} tokens`;
 
     dom.topLexiconChips.innerHTML = data.top.slice(0, 40).map(item => `
-      <span class="px-2.5 py-1 rounded-full bg-[#D9D3CC]/10 border border-[#D9D3CC]/25 text-[#D9D3CC] text-xs font-mono hover:bg-[#D9D3CC]/20 transition-colors">
-        ${escapeHtml(item.word)} <span class="text-[#FF8C12] text-[10px] font-bold">(${item.freq})</span>
+      <span class="px-2.5 py-1 rounded-full bg-[#FAF7F4] border border-[#2B1C33]/20 text-[#2B1C33] text-xs font-mono hover:border-[#FF8C12] transition-colors shadow-sm">
+        ${escapeHtml(item.word)} <span class="text-[#B85B00] text-[10px] font-bold">(${item.freq})</span>
       </span>
     `).join('');
 
@@ -983,6 +997,27 @@ async function loadSystemInfo() {
   } catch (err) {
     console.error(err);
   }
+}
+
+// ----------------- Toast Notifications -----------------
+
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span>${escapeHtml(message)}</span>
+  `;
+
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 350);
+  }, 3500);
 }
 
 // ----------------- Utility Functions -----------------

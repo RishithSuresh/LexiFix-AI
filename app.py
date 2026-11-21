@@ -24,9 +24,14 @@ from spelling_correction import (
     DEFAULT_CORPUS,
     LLMCorrector,
     NoisyChannelSpellCorrector,
+    _damerau_levenshtein_distance,
     _edit_distance,
+    _soundex,
+    character_error_rate,
     correction_metrics,
+    sentence_exact_match,
     word_accuracy,
+    word_error_rate,
 )
 from run_comparison import MODEL_PRESETS, load_cases, run as run_cli_cases
 
@@ -34,6 +39,7 @@ MODEL_OPTIONS = (
     "vennify/t5-base-grammar-correction",
     "vennify/t5-small-grammar-correction",
     "google/flan-t5-small",
+    "oliverguhr/spelling-correction-english-base",
 )
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -178,6 +184,7 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
 
         in_vocab = word.lower() in _BASELINE.vocabulary
         correction = _BASELINE.correct_word(word)
+        query_soundex = _soundex(word)
 
         # Retrieve all candidate neighbors
         candidates = []
@@ -185,9 +192,14 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
             if abs(len(candidate) - len(word.lower())) <= _BASELINE.max_distance:
                 dist = _edit_distance(word.lower(), candidate)
                 if dist <= _BASELINE.max_distance:
+                    dam_dist = _damerau_levenshtein_distance(word.lower(), candidate)
+                    cand_soundex = _soundex(candidate)
                     candidates.append({
                         "word": candidate,
                         "distance": dist,
+                        "damerau_distance": dam_dist,
+                        "soundex": cand_soundex,
+                        "phonetic_match": cand_soundex == query_soundex,
                         "freq": _BASELINE.frequencies[candidate],
                     })
 
@@ -195,9 +207,12 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
 
         return {
             "word": word,
+            "soundex": query_soundex,
             "in_vocabulary": in_vocab,
             "corrected": correction.corrected,
             "distance": correction.distance,
+            "damerau_distance": correction.damerau_distance,
+            "phonetic_match": correction.phonetic_match,
             "confidence": round(correction.confidence, 4),
             "candidates": candidates[:15],
         }
@@ -228,6 +243,8 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
                 "original": c.original,
                 "corrected": c.corrected,
                 "distance": c.distance,
+                "damerau_distance": c.damerau_distance,
+                "phonetic_match": c.phonetic_match,
                 "confidence": round(c.confidence, 3),
             }
             for c in raw_corrections
@@ -239,6 +256,9 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
         baseline_prec = 0.0
         baseline_rec = 0.0
         baseline_f1 = 0.0
+        baseline_cer = 0.0
+        baseline_wer = 0.0
+        baseline_exact = False
 
         if expected_text:
             baseline_acc = word_accuracy(expected_text, baseline_text)
@@ -246,6 +266,9 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
             baseline_prec = b_metrics["precision"]
             baseline_rec = b_metrics["recall"]
             baseline_f1 = b_metrics["f1"]
+            baseline_cer = character_error_rate(expected_text, baseline_text)
+            baseline_wer = word_error_rate(expected_text, baseline_text)
+            baseline_exact = sentence_exact_match(expected_text, baseline_text)
 
         # Run LLM Models
         llm_results = []
@@ -264,12 +287,18 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
                 prec = 0.0
                 rec = 0.0
                 f1 = 0.0
+                cer = 0.0
+                wer = 0.0
+                exact = False
                 if expected_text:
                     acc = word_accuracy(expected_text, llm_out)
                     m = correction_metrics(text, expected_text, llm_out)
                     prec = m["precision"]
                     rec = m["recall"]
                     f1 = m["f1"]
+                    cer = character_error_rate(expected_text, llm_out)
+                    wer = word_error_rate(expected_text, llm_out)
+                    exact = sentence_exact_match(expected_text, llm_out)
 
                 llm_results.append({
                     "model": model_name,
@@ -280,6 +309,9 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
                     "precision": prec,
                     "recall": rec,
                     "f1": f1,
+                    "cer": cer,
+                    "wer": wer,
+                    "exact_match": exact,
                 })
             except Exception as exc:
                 llm_results.append({
@@ -299,6 +331,9 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
             "baseline_precision": baseline_prec,
             "baseline_recall": baseline_rec,
             "baseline_f1": baseline_f1,
+            "baseline_cer": baseline_cer,
+            "baseline_wer": baseline_wer,
+            "baseline_exact_match": baseline_exact,
             "corrections": corrections_data,
             "llm_results": llm_results,
         }
@@ -456,7 +491,7 @@ def main() -> None:
     use_webview = not args.browser
     if use_webview:
         try:
-            import webview
+            import webview  # type: ignore
 
             window = webview.create_window(
                 "LexiFix AI — Spelling Intelligence Studio",
