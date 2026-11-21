@@ -1,21 +1,34 @@
-"""Desktop user interface for LexiFix AI.
+"""Modern desktop and web application for LexiFix AI.
 
-The interface deliberately uses Tkinter from Python's standard library, so
-the project can be used without installing a separate web framework.
+Provides a next-generation interactive studio for spelling detection, explainable
+candidate ranking, Transformer model comparisons, and benchmark dataset exploration.
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
+import json
+import mimetypes
 from pathlib import Path
+import re
+import socket
+import sys
 import threading
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+import time
+from typing import Any
+import urllib.parse
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 from spelling_correction import (
+    DEFAULT_CORPUS,
     LLMCorrector,
     NoisyChannelSpellCorrector,
+    _edit_distance,
+    correction_metrics,
+    word_accuracy,
 )
+from run_comparison import MODEL_PRESETS, load_cases, run as run_cli_cases
 
 MODEL_OPTIONS = (
     "vennify/t5-base-grammar-correction",
@@ -23,587 +36,454 @@ MODEL_OPTIONS = (
     "google/flan-t5-small",
 )
 
-COLORS = {
-    "background": "#0b1120",
-    "sidebar": "#111a2e",
-    "surface": "#151f35",
-    "surface_dark": "#1d2942",
-    "text": "#f4f7ff",
-    "muted": "#8e9bb5",
-    "primary": "#7c6cff",
-    "primary_dark": "#6657e8",
-    "success": "#39d98a",
-    "border": "#263452",
-    "input": "#10192c",
-}
+BASE_DIR = Path(__file__).resolve().parent
+WEB_DIR = BASE_DIR / "web"
+
+# Thread-safe LLM model cache
+_LLM_CACHE: dict[str, LLMCorrector] = {}
+_LLM_LOCK = threading.Lock()
+_BASELINE = NoisyChannelSpellCorrector()
 
 
-class LexiFixApp(tk.Tk):
-    """Main window that connects the user interface to the correction models."""
+def get_llm(model_name: str) -> LLMCorrector:
+    """Retrieve or lazily initialize an LLM corrector."""
+    with _LLM_LOCK:
+        if model_name not in _LLM_CACHE:
+            prefix = MODEL_PRESETS.get(model_name, "grammar:")
+            _LLM_CACHE[model_name] = LLMCorrector(model_name, task_prefix=prefix)
+        return _LLM_CACHE[model_name]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.title("LexiFix AI - Spelling Correction")
-        self.geometry("1180x820")
-        self.minsize(900, 680)
-        self.configure(background=COLORS["background"])
-        self._configure_theme()
 
-        self.baseline = NoisyChannelSpellCorrector()
-        self.llms: dict[str, LLMCorrector] = {}
-        self.last_result: dict[str, str] | None = None
-        self.csv_rows: list[dict[str, str]] = []
-        self._build_widgets()
-        self._load_latest_csv()
+def find_free_port(preferred: int = 8765) -> int:
+    """Find an available TCP port starting from preferred."""
+    for port in range(preferred, preferred + 50):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("127.0.0.1", port)) != 0:
+                return port
+    return preferred
 
-    def _configure_theme(self) -> None:
-        """Define a restrained visual theme using only Tkinter primitives."""
-        style = ttk.Style(self)
-        style.theme_use("clam")
-        style.configure(
-            "App.TFrame",
-            background=COLORS["background"],
-        )
-        style.configure(
-            "Card.TLabelframe",
-            background=COLORS["surface"],
-            bordercolor=COLORS["border"],
-            lightcolor=COLORS["border"],
-            darkcolor=COLORS["border"],
-            relief="solid",
-            borderwidth=1,
-        )
-        style.configure(
-            "Card.TLabelframe.Label",
-            background=COLORS["surface"],
-            foreground=COLORS["text"],
-            font=("Segoe UI", 10, "bold"),
-        )
-        style.configure(
-            "Primary.TButton",
-            background=COLORS["primary"],
-            foreground="white",
-            borderwidth=0,
-            font=("Segoe UI", 10, "bold"),
-            padding=(16, 9),
-        )
-        style.map(
-            "Primary.TButton",
-            background=[("active", COLORS["primary_dark"]), ("disabled", "#9db5e8")],
-        )
-        style.configure(
-            "Secondary.TButton",
-            background=COLORS["surface_dark"],
-            foreground=COLORS["text"],
-            borderwidth=0,
-            padding=(12, 9),
-        )
-        style.configure(
-            "App.TLabel",
-            background=COLORS["background"],
-            foreground=COLORS["text"],
-        )
-        style.configure(
-            "Treeview",
-            background=COLORS["surface"],
-            fieldbackground=COLORS["surface"],
-            foreground=COLORS["text"],
-            rowheight=30,
-            borderwidth=0,
-            font=("Segoe UI", 9),
-        )
-        style.configure(
-            "Treeview.Heading",
-            background=COLORS["surface_dark"],
-            foreground=COLORS["text"],
-            relief="flat",
-            font=("Segoe UI", 9, "bold"),
-        )
-        style.map(
-            "Treeview",
-            background=[("selected", COLORS["primary"])],
-            foreground=[("selected", "white")],
-        )
 
-    def _build_widgets(self) -> None:
-        """Create the branded shell and switchable product views."""
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)
+class LexiFixRequestHandler(SimpleHTTPRequestHandler):
+    """Multi-threaded REST API and static asset handler."""
 
-        shell = tk.Frame(self, background=COLORS["background"])
-        shell.grid(row=0, column=0, sticky="nsew")
-        shell.columnconfigure(1, weight=1)
-        shell.rowconfigure(0, weight=1)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, directory=str(WEB_DIR), **kwargs)
 
-        sidebar = tk.Frame(shell, background=COLORS["sidebar"], width=230)
-        sidebar.grid(row=0, column=0, sticky="nsew")
-        sidebar.grid_propagate(False)
-        ttk.Label(
-            sidebar, text="LEXIFIX", foreground=COLORS["primary"],
-            background=COLORS["sidebar"], font=("Segoe UI", 18, "bold"),
-        ).pack(anchor="w", padx=24, pady=(32, 2))
-        ttk.Label(
-            sidebar, text="AI SPELLING STUDIO", foreground=COLORS["muted"],
-            background=COLORS["sidebar"], font=("Segoe UI", 8, "bold"),
-        ).pack(anchor="w", padx=25, pady=(0, 40))
+    def log_message(self, format: str, *args: Any) -> None:
+        # Suppress verbose standard HTTP request logs for cleaner CLI
+        pass
 
-        self.nav_buttons: dict[str, tk.Button] = {}
-        self._add_nav_button(sidebar, "workspace", "Correction workspace", "01")
-        self._add_nav_button(sidebar, "csv", "Comparison results", "02")
-        tk.Frame(sidebar, background=COLORS["border"], height=1).pack(
-            fill="x", padx=24, pady=28
-        )
-        ttk.Label(
-            sidebar, text="LOCAL & EXPLAINABLE", foreground=COLORS["muted"],
-            background=COLORS["sidebar"], font=("Segoe UI", 8, "bold"),
-        ).pack(anchor="w", padx=25)
-        ttk.Label(
-            sidebar,
-            text="Offline baseline\nOptional Transformer models\nCSV-ready evaluation",
-            foreground="#b7c2d9", background=COLORS["sidebar"],
-            font=("Segoe UI", 9), justify="left",
-        ).pack(anchor="w", padx=25, pady=(10, 0))
-        ttk.Label(
-            sidebar, text="v1.0  •  LexiFix AI", foreground="#596984",
-            background=COLORS["sidebar"], font=("Segoe UI", 8),
-        ).pack(side="bottom", anchor="w", padx=25, pady=24)
+    def do_GET(self) -> None:
+        """Route GET requests to API endpoints or static web assets."""
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
 
-        content = tk.Frame(shell, background=COLORS["background"])
-        content.grid(row=0, column=1, sticky="nsew")
-        content.columnconfigure(0, weight=1)
-        content.rowconfigure(0, weight=1)
-        self.view_container = content
-        correction_tab = tk.Frame(content, background=COLORS["background"])
-        csv_tab = tk.Frame(content, background=COLORS["background"])
-        self.views = {"workspace": correction_tab, "csv": csv_tab}
-        for view in self.views.values():
-            view.grid(row=0, column=0, sticky="nsew")
-        self._build_correction_tab(correction_tab)
-        self._build_csv_tab(csv_tab)
-        self._show_view("workspace")
-
-    def _add_nav_button(self, parent: tk.Frame, key: str, label: str, number: str) -> None:
-        """Add a custom navigation control instead of a native tab strip."""
-        button = tk.Button(
-            parent, text=f"  {number}    {label}", anchor="w",
-            command=lambda: self._show_view(key),
-            background=COLORS["sidebar"], foreground=COLORS["muted"],
-            activebackground=COLORS["surface_dark"], activeforeground=COLORS["text"],
-            relief="flat", bd=0, padx=16, pady=12,
-            font=("Segoe UI", 10), cursor="hand2",
-        )
-        button.pack(fill="x", padx=12, pady=3)
-        self.nav_buttons[key] = button
-
-    def _show_view(self, key: str) -> None:
-        """Raise a product view and highlight its navigation item."""
-        self.views[key].tkraise()
-        for name, button in self.nav_buttons.items():
-            active = name == key
-            button.configure(
-                background=COLORS["surface_dark"] if active else COLORS["sidebar"],
-                foreground=COLORS["text"] if active else COLORS["muted"],
-                font=("Segoe UI", 10, "bold") if active else ("Segoe UI", 10),
-            )
-
-    def _build_correction_tab(self, parent: ttk.Frame) -> None:
-        """Build the text correction workspace inside the first tab."""
-        parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(2, weight=1)
-        parent.rowconfigure(4, weight=1)
-
-        header = ttk.Frame(parent, padding=(28, 24, 28, 16), style="App.TFrame")
-        header.grid(row=0, column=0, sticky="ew")
-        header.columnconfigure(0, weight=1)
-        ttk.Label(
-            header,
-            text="LexiFix AI",
-            font=("Segoe UI", 26, "bold"),
-            foreground=COLORS["text"],
-            background=COLORS["background"],
-        ).grid(row=0, column=0, sticky="w")
-        ttk.Label(
-            header,
-            text="Detect, correct, and compare spelling with Python NLP and an optional LLM.",
-            foreground=COLORS["muted"],
-            background=COLORS["background"],
-            font=("Segoe UI", 10),
-        ).grid(row=1, column=0, sticky="w", pady=(5, 0))
-        ttk.Label(
-            header,
-            text="SPELLING INTELLIGENCE",
-            foreground=COLORS["primary"],
-            background=COLORS["background"],
-            font=("Segoe UI", 9, "bold"),
-        ).grid(row=0, column=1, sticky="e")
-
-        options = ttk.LabelFrame(
-            parent, text="  Model settings  ", padding=(16, 12), style="Card.TLabelframe"
-        )
-        options.grid(row=1, column=0, padx=28, sticky="ew")
-        options.columnconfigure(1, weight=1)
-        ttk.Label(options, text="Compare models:", style="App.TLabel").grid(
-            row=0, column=0, sticky="w"
-        )
-        self.model_list = tk.Listbox(
-            options, height=3, selectmode="multiple", exportselection=False,
-            font=("Segoe UI", 9), relief="flat", bd=0,
-            background="#fbfcfe", foreground=COLORS["text"],
-        )
-        self.model_list.grid(row=0, column=1, sticky="ew", padx=8)
-        for model in MODEL_OPTIONS:
-            self.model_list.insert("end", model)
-        self.model_list.selection_set(0, 1)
-        ttk.Label(
-            options,
-            text="Select one or more\nmodels to compare",
-            foreground=COLORS["success"],
-            background=COLORS["surface"],
-            font=("Segoe UI", 9, "bold"),
-        ).grid(
-            row=0, column=2, sticky="w", padx=(12, 0)
-        )
-        ttk.Label(options, text="Custom model (optional):", style="App.TLabel").grid(
-            row=1, column=0, sticky="w", pady=(10, 0)
-        )
-        self.custom_model_var = tk.StringVar()
-        ttk.Entry(options, textvariable=self.custom_model_var).grid(
-            row=1, column=1, sticky="ew", padx=8, pady=(10, 0)
-        )
-        ttk.Label(
-            options, text="Leave blank to use presets", foreground=COLORS["muted"],
-            background=COLORS["surface"], font=("Segoe UI", 9)
-        ).grid(row=1, column=2, sticky="w", padx=(12, 0), pady=(10, 0))
-
-        input_frame = ttk.LabelFrame(
-            parent, text="  Input text  ", padding=(16, 14), style="Card.TLabelframe"
-        )
-        input_frame.grid(row=2, column=0, padx=28, pady=(16, 10), sticky="nsew")
-        input_frame.columnconfigure(0, weight=1)
-        input_frame.rowconfigure(0, weight=1)
-        self.input_text = tk.Text(
-            input_frame,
-            height=8,
-            wrap="word",
-            undo=True,
-            font=("Segoe UI", 11),
-            padx=10,
-            pady=10,
-            relief="flat",
-            borderwidth=0,
-            background=COLORS["input"],
-            foreground=COLORS["text"],
-            insertbackground=COLORS["primary"],
-        )
-        self.input_text.grid(row=0, column=0, sticky="nsew")
-        self.input_text.insert(
-            "1.0",
-            "I recieve the mesage from my frend.",
-        )
-        input_scroll = ttk.Scrollbar(
-            input_frame, orient="vertical", command=self.input_text.yview
-        )
-        input_scroll.grid(row=0, column=1, sticky="ns")
-        self.input_text.configure(yscrollcommand=input_scroll.set)
-
-        actions = ttk.Frame(parent, padding=(28, 2, 28, 8), style="App.TFrame")
-        actions.grid(row=3, column=0, sticky="ew")
-        self.correct_button = ttk.Button(
-            actions, text="✦  Correct and compare", command=self._start_correction,
-            style="Primary.TButton"
-        )
-        self.correct_button.pack(side="left")
-        ttk.Button(actions, text="Clear", command=self._clear, style="Secondary.TButton").pack(
-            side="left", padx=8
-        )
-        ttk.Button(
-            actions, text="Save result as CSV", command=self._save_csv,
-            style="Secondary.TButton"
-        ).pack(
-            side="left"
-        )
-        self.status_var = tk.StringVar(value="●  Ready")
-        ttk.Label(
-            actions, textvariable=self.status_var, foreground=COLORS["muted"],
-            background=COLORS["background"], font=("Segoe UI", 9, "bold")
-        ).pack(side="right")
-
-        output = ttk.Frame(parent, padding=(28, 4, 28, 0), style="App.TFrame")
-        output.grid(row=4, column=0, sticky="nsew")
-        output.columnconfigure(0, weight=1)
-        output.columnconfigure(1, weight=1)
-        output.rowconfigure(1, weight=1)
-        ttk.Label(
-            output, text="  PYTHON NLP BASELINE", font=("Segoe UI", 10, "bold"),
-            foreground=COLORS["primary"], background=COLORS["background"]
-        ).grid(
-            row=0, column=0, sticky="w"
-        )
-        ttk.Label(
-            output, text="  LLM CORRECTION", font=("Segoe UI", 10, "bold"),
-            foreground=COLORS["primary"], background=COLORS["background"]
-        ).grid(
-            row=0, column=1, sticky="w", padx=(12, 0)
-        )
-        self.baseline_output = self._make_output_box(output, 0)
-        self.llm_output = self._make_output_box(output, 1)
-
-        self.baseline_meta_var = tk.StringVar(value="Deterministic • Offline")
-        self.llm_meta_var = tk.StringVar(value="Optional • Model not run")
-        ttk.Label(
-            output, textvariable=self.baseline_meta_var, foreground=COLORS["muted"],
-            background=COLORS["background"], font=("Segoe UI", 9)
-        ).grid(row=2, column=0, sticky="w", pady=(6, 0))
-        ttk.Label(
-            output, textvariable=self.llm_meta_var, foreground=COLORS["muted"],
-            background=COLORS["background"], font=("Segoe UI", 9)
-        ).grid(row=2, column=1, sticky="w", padx=(12, 0), pady=(6, 0))
-        self.details_var = tk.StringVar(
-            value="Run a correction to see detected errors and model details."
-        )
-        ttk.Label(
-            parent, textvariable=self.details_var, padding=(28, 12, 28, 18),
-            wraplength=1120, foreground=COLORS["muted"],
-            background=COLORS["background"], font=("Segoe UI", 9)
-        ).grid(row=5, column=0, sticky="w")
-
-    def _build_csv_tab(self, parent: ttk.Frame) -> None:
-        """Build a table for inspecting generated comparison CSV files."""
-        parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(1, weight=1)
-        toolbar = ttk.Frame(parent, padding=(28, 24, 28, 12), style="App.TFrame")
-        toolbar.grid(row=0, column=0, sticky="ew")
-        toolbar.columnconfigure(0, weight=1)
-        ttk.Label(
-            toolbar,
-            text="Comparison results",
-            font=("Segoe UI", 18, "bold"),
-            foreground=COLORS["text"],
-            background=COLORS["background"],
-        ).grid(row=0, column=0, sticky="w")
-        ttk.Button(
-            toolbar, text="Open CSV file", command=self._open_csv,
-            style="Secondary.TButton",
-        ).grid(row=0, column=1, padx=(8, 0))
-        ttk.Button(
-            toolbar, text="Refresh", command=self._load_latest_csv,
-            style="Secondary.TButton",
-        ).grid(row=0, column=2, padx=(8, 0))
-
-        table_frame = tk.Frame(
-            parent, background=COLORS["surface"],
-            highlightbackground=COLORS["border"], highlightthickness=1, bd=0,
-        )
-        table_frame.grid(row=1, column=0, padx=28, pady=(0, 18), sticky="nsew")
-        table_frame.columnconfigure(0, weight=1)
-        table_frame.rowconfigure(0, weight=1)
-        self.csv_table = ttk.Treeview(table_frame, show="headings")
-        self.csv_table.grid(row=0, column=0, sticky="nsew")
-        y_scroll = ttk.Scrollbar(
-            table_frame, orient="vertical", command=self.csv_table.yview
-        )
-        y_scroll.grid(row=0, column=1, sticky="ns")
-        x_scroll = ttk.Scrollbar(
-            table_frame, orient="horizontal", command=self.csv_table.xview
-        )
-        x_scroll.grid(row=1, column=0, sticky="ew")
-        self.csv_table.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
-        self.csv_status_var = tk.StringVar(value="No CSV loaded")
-        ttk.Label(
-            parent, textvariable=self.csv_status_var, padding=(28, 0, 28, 12),
-            foreground=COLORS["muted"], background=COLORS["background"],
-        ).grid(row=2, column=0, sticky="w")
-
-    def _load_latest_csv(self) -> None:
-        """Load the most recent comparison CSV from the project directory."""
-        candidates = [
-            Path("multi_model_results.csv"),
-            Path("llm_comparison_results.csv"),
-            Path("my_results.csv"),
-            Path("spelling_correction_results.csv"),
-        ]
-        for path in candidates:
-            if path.is_file():
-                self._load_csv(path)
-                return
-        self.csv_status_var.set("No comparison CSV found. Run a comparison first.")
-
-    def _open_csv(self) -> None:
-        """Let the user select any comparison CSV to display."""
-        path = filedialog.askopenfilename(
-            title="Open comparison CSV",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-        )
-        if path:
-            self._load_csv(Path(path))
-
-    def _load_csv(self, path: Path) -> None:
-        """Read CSV rows and render them with horizontal and vertical scrolling."""
-        try:
-            with path.open(newline="", encoding="utf-8-sig") as stream:
-                rows = list(csv.DictReader(stream))
-            if not rows:
-                raise ValueError("The CSV contains no data rows.")
-            columns = list(rows[0])
-            self.csv_rows = rows
-            self.csv_table.configure(columns=columns)
-            for column in columns:
-                self.csv_table.heading(column, text=column)
-                self.csv_table.column(column, width=max(130, min(360, len(column) * 10)))
-            for item in self.csv_table.get_children():
-                self.csv_table.delete(item)
-            for row in rows:
-                self.csv_table.insert("", "end", values=[row.get(column, "") for column in columns])
-            self.csv_status_var.set(f"{path.name} • {len(rows)} result(s)")
-        except (OSError, csv.Error, ValueError) as error:
-            messagebox.showerror("CSV could not be loaded", str(error))
-
-    def _make_output_box(self, parent: ttk.Frame, column: int) -> tk.Text:
-        """Create one read-only-looking text area for a model result."""
-        frame = tk.Frame(
-            parent, background=COLORS["surface"], highlightbackground=COLORS["border"],
-            highlightthickness=1, bd=0
-        )
-        frame.grid(row=1, column=column, sticky="nsew", padx=(0 if column == 0 else 12, 0))
-        frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(0, weight=1)
-        text = tk.Text(
-            frame, height=10, wrap="word", state="disabled",
-            font=("Segoe UI", 11), padx=12, pady=12, relief="flat", bd=0,
-            background=COLORS["surface"], foreground=COLORS["text"],
-        )
-        text.grid(row=0, column=0, sticky="nsew")
-        scroll = ttk.Scrollbar(frame, orient="vertical", command=text.yview)
-        scroll.grid(row=0, column=1, sticky="ns")
-        text.configure(yscrollcommand=scroll.set)
-        return text
-
-    def _set_output(self, widget: tk.Text, value: str) -> None:
-        """Replace a result box's contents while keeping it non-editable."""
-        widget.configure(state="normal")
-        widget.delete("1.0", "end")
-        widget.insert("1.0", value)
-        widget.configure(state="disabled")
-
-    def _start_correction(self) -> None:
-        """Validate input and run model work away from the UI thread."""
-        source = self.input_text.get("1.0", "end-1c").strip()
-        if not source:
-            messagebox.showwarning("Input required", "Enter text to correct first.")
-            return
-        selected = [self.model_list.get(index) for index in self.model_list.curselection()]
-        custom_model = self.custom_model_var.get().strip()
-        if custom_model and custom_model not in selected:
-            selected.append(custom_model)
-        self.correct_button.configure(state="disabled")
-        self.status_var.set("●  Processing...")
-        threading.Thread(
-            target=self._correct_in_background,
-            args=(source, selected),
-            daemon=True,
-        ).start()
-
-    def _correct_in_background(self, source: str, model_names: list[str]) -> None:
-        """Run correction without freezing the window during an LLM download."""
-        try:
-            baseline_text, corrections = self.baseline.correct(source)
-            llm_outputs: list[str] = []
-            statuses: list[str] = []
-            for model_name in model_names:
-                if model_name not in self.llms:
-                    self.llms[model_name] = LLMCorrector(model_name)
-                try:
-                    llm_outputs.append(
-                        f"[{model_name}]\n{self.llms[model_name].correct(source)}"
-                    )
-                    statuses.append(f"{model_name}: ok")
-                except (RuntimeError, OSError, ValueError) as error:
-                    statuses.append(f"{model_name}: error: {error}")
-            result = {
-                "input_text": source,
-                "expected_text": "",
-                "detected_errors": "; ".join(
-                    item.original for item in corrections if item.distance > 0
-                ),
-                "baseline_text": baseline_text,
-                "baseline_accuracy": "",
-                "baseline_precision": "",
-                "baseline_recall": "",
-                "baseline_f1": "",
-                "llm_text": "\n\n".join(llm_outputs),
-                "llm_accuracy": "",
-                "llm_precision": "",
-                "llm_recall": "",
-                "llm_f1": "",
-                "llm_status": "; ".join(statuses) if statuses else "not configured",
-            }
-            self.after(0, self._show_result, result)
-        except (RuntimeError, OSError, ValueError) as error:
-            self.after(0, self._show_error, str(error))
-
-    def _show_result(self, result: dict[str, str]) -> None:
-        """Render model outputs and explain the baseline's detected changes."""
-        self.last_result = result
-        self._set_output(self.baseline_output, result["baseline_text"])
-        self._set_output(
-            self.llm_output,
-            result["llm_text"] or "LLM disabled. Clear the model field to use baseline only.",
-        )
-        corrections = result["detected_errors"] or "No baseline spelling errors detected."
-        details = f"Detected errors: {corrections}"
-        if result["llm_status"] == "ok":
-            details += "\nThe LLM result is shown for comparison. Use Save result as CSV to export this run."
+        if path == "/api/info":
+            self.send_json(self._get_sys_info())
+        elif path == "/api/csv/list":
+            self.send_json(self._get_csv_list())
+        elif path == "/api/csv/read":
+            params = urllib.parse.parse_qs(parsed.query)
+            filename = params.get("file", [""])[0]
+            self.send_json(self._read_csv_file(filename))
+        elif path == "/api/vocabulary":
+            self.send_json(self._get_vocabulary())
         else:
-            details += "\nLLM status: not configured."
-        self.details_var.set(details)
-        self.status_var.set("●  Completed")
-        self.baseline_meta_var.set(
-            f"Deterministic • {len(result['detected_errors'].split('; ')) if result['detected_errors'] else 0} corrections"
+            # Static file resolution
+            if path in ("", "/"):
+                self.path = "/index.html"
+            return super().do_GET()
+
+    def do_POST(self) -> None:
+        """Route POST requests to API action endpoints."""
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        body = self._read_json_body()
+
+        if path == "/api/correct":
+            self.send_json(self._handle_correct(body))
+        elif path == "/api/csv/save":
+            self.send_json(self._handle_csv_save(body))
+        elif path == "/api/benchmark/run":
+            self.send_json(self._handle_benchmark_run(body))
+        elif path == "/api/explain/word":
+            self.send_json(self._handle_explain_word(body))
+        else:
+            self.send_error(404, "Endpoint not found")
+
+    def send_json(self, data: Any, status: int = 200) -> None:
+        """Send formatted JSON response."""
+        encoded = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def _read_json_body(self) -> dict[str, Any]:
+        """Read and parse incoming JSON payload."""
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length <= 0:
+            return {}
+        raw = self.rfile.read(content_length).decode("utf-8", errors="replace")
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+
+    # --- API Implementation Methods ---
+
+    def _get_sys_info(self) -> dict[str, Any]:
+        """Return runtime hardware, PyTorch, and Transformers status."""
+        torch_info = "Not installed"
+        device = "CPU"
+        try:
+            import torch
+            torch_info = torch.__version__
+            if torch.cuda.is_available():
+                device = f"CUDA ({torch.cuda.get_device_name(0)})"
+        except ImportError:
+            pass
+
+        transformers_info = "4.40+"
+        try:
+            import transformers
+            transformers_info = transformers.__version__
+        except ImportError:
+            pass
+
+        return {
+            "torch_version": torch_info,
+            "torch_device": device,
+            "transformers_version": transformers_info,
+            "python_version": sys.version.split()[0],
+        }
+
+    def _get_vocabulary(self) -> dict[str, Any]:
+        """Return corpus vocabulary statistics and top frequency words."""
+        freqs = _BASELINE.frequencies
+        sorted_words = sorted(freqs.items(), key=lambda x: (-x[1], x[0]))
+        return {
+            "size": len(_BASELINE.vocabulary),
+            "tokens": sum(freqs.values()),
+            "top": [{"word": word, "freq": count} for word, count in sorted_words],
+        }
+
+    def _handle_explain_word(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Calculate detailed candidate ranking and confidence breakdown for one word."""
+        word = body.get("word", "").strip()
+        if not word:
+            return {"error": "Empty word"}
+
+        in_vocab = word.lower() in _BASELINE.vocabulary
+        correction = _BASELINE.correct_word(word)
+
+        # Retrieve all candidate neighbors
+        candidates = []
+        for candidate in _BASELINE.vocabulary:
+            if abs(len(candidate) - len(word.lower())) <= _BASELINE.max_distance:
+                dist = _edit_distance(word.lower(), candidate)
+                if dist <= _BASELINE.max_distance:
+                    candidates.append({
+                        "word": candidate,
+                        "distance": dist,
+                        "freq": _BASELINE.frequencies[candidate],
+                    })
+
+        candidates.sort(key=lambda x: (x["distance"], -x["freq"], x["word"]))
+
+        return {
+            "word": word,
+            "in_vocabulary": in_vocab,
+            "corrected": correction.corrected,
+            "distance": correction.distance,
+            "confidence": round(correction.confidence, 4),
+            "candidates": candidates[:15],
+        }
+
+    def _handle_correct(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Run baseline NLP correction and optional LLMs, computing diffs and metrics."""
+        text = body.get("text", "").strip()
+        if not text:
+            return {"error": "Input text is required"}
+
+        max_distance = int(body.get("max_distance", 2))
+        expected_text = body.get("expected_text", "").strip()
+        model_names = body.get("models", [])
+
+        corrector = (
+            _BASELINE
+            if max_distance == _BASELINE.max_distance
+            else NoisyChannelSpellCorrector(max_distance=max_distance)
         )
-        self.llm_meta_var.set(
-            "Optional • Completed" if result["llm_status"] == "ok"
-            else "Optional • Not configured"
+
+        # Baseline correction
+        t0 = time.perf_counter()
+        baseline_text, raw_corrections = corrector.correct(text)
+        baseline_latency = round((time.perf_counter() - t0) * 1000, 1)
+
+        corrections_data = [
+            {
+                "original": c.original,
+                "corrected": c.corrected,
+                "distance": c.distance,
+                "confidence": round(c.confidence, 3),
+            }
+            for c in raw_corrections
+            if c.distance > 0
+        ]
+
+        # Calculate metrics if expected ground truth provided
+        baseline_acc = 0.0
+        baseline_prec = 0.0
+        baseline_rec = 0.0
+        baseline_f1 = 0.0
+
+        if expected_text:
+            baseline_acc = word_accuracy(expected_text, baseline_text)
+            b_metrics = correction_metrics(text, expected_text, baseline_text)
+            baseline_prec = b_metrics["precision"]
+            baseline_rec = b_metrics["recall"]
+            baseline_f1 = b_metrics["f1"]
+
+        # Run LLM Models
+        llm_results = []
+        for model_name in model_names:
+            model_name = model_name.strip()
+            if not model_name:
+                continue
+
+            t_start = time.perf_counter()
+            try:
+                llm = get_llm(model_name)
+                llm_out = llm.correct(text)
+                latency = round((time.perf_counter() - t_start) * 1000, 1)
+
+                acc = 0.0
+                prec = 0.0
+                rec = 0.0
+                f1 = 0.0
+                if expected_text:
+                    acc = word_accuracy(expected_text, llm_out)
+                    m = correction_metrics(text, expected_text, llm_out)
+                    prec = m["precision"]
+                    rec = m["recall"]
+                    f1 = m["f1"]
+
+                llm_results.append({
+                    "model": model_name,
+                    "status": "ok",
+                    "text": llm_out,
+                    "latency_ms": latency,
+                    "accuracy": acc,
+                    "precision": prec,
+                    "recall": rec,
+                    "f1": f1,
+                })
+            except Exception as exc:
+                llm_results.append({
+                    "model": model_name,
+                    "status": "error",
+                    "error": str(exc),
+                    "text": "",
+                    "latency_ms": round((time.perf_counter() - t_start) * 1000, 1),
+                })
+
+        return {
+            "input_text": text,
+            "expected_text": expected_text,
+            "baseline_text": baseline_text,
+            "baseline_latency_ms": baseline_latency,
+            "baseline_accuracy": baseline_acc,
+            "baseline_precision": baseline_prec,
+            "baseline_recall": baseline_rec,
+            "baseline_f1": baseline_f1,
+            "corrections": corrections_data,
+            "llm_results": llm_results,
+        }
+
+    def _get_csv_list(self) -> list[dict[str, Any]]:
+        """List all CSV files in workspace with metadata."""
+        files = []
+        for path in sorted(BASE_DIR.glob("*.csv")):
+            try:
+                size_kb = round(path.stat().st_size / 1024, 1)
+                row_count = 0
+                with path.open(newline="", encoding="utf-8-sig") as f:
+                    row_count = max(0, sum(1 for _ in f) - 1)
+                files.append({
+                    "name": path.name,
+                    "rows": row_count,
+                    "size_kb": size_kb,
+                    "modified": path.stat().st_mtime,
+                })
+            except Exception:
+                pass
+        return files
+
+    def _read_csv_file(self, filename: str) -> dict[str, Any]:
+        """Safely read and parse CSV content."""
+        clean_name = Path(filename).name
+        target = BASE_DIR / clean_name
+        if not target.is_file():
+            return {"headers": [], "rows": [], "error": "File not found"}
+
+        try:
+            with target.open(newline="", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                headers = list(reader.fieldnames or [])
+                rows = list(reader)
+            return {"headers": headers, "rows": rows}
+        except Exception as exc:
+            return {"headers": [], "rows": [], "error": str(exc)}
+
+    def _handle_csv_save(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Save comparison run record to a CSV file."""
+        target_path = BASE_DIR / "spelling_correction_results.csv"
+        fields = [
+            "input_text",
+            "expected_text",
+            "detected_errors",
+            "baseline_text",
+            "baseline_accuracy",
+            "baseline_precision",
+            "baseline_recall",
+            "baseline_f1",
+            "llm_text",
+            "llm_accuracy",
+            "llm_precision",
+            "llm_recall",
+            "llm_f1",
+            "llm_status",
+        ]
+
+        # Extract LLM summary
+        llm_results = body.get("llm_results", [])
+        llm_text = "\n\n".join(f"[{r['model']}] {r['text']}" for r in llm_results if r.get("status") == "ok")
+        llm_status = "; ".join(f"{r['model']}: {r.get('status')}" for r in llm_results)
+
+        llm_first = llm_results[0] if llm_results else {}
+        row = {
+            "input_text": body.get("input_text", ""),
+            "expected_text": body.get("expected_text", ""),
+            "detected_errors": "; ".join(c.get("original", "") for c in body.get("corrections", [])),
+            "baseline_text": body.get("baseline_text", ""),
+            "baseline_accuracy": f"{body.get('baseline_accuracy', 0):.3f}",
+            "baseline_precision": f"{body.get('baseline_precision', 0):.3f}",
+            "baseline_recall": f"{body.get('baseline_recall', 0):.3f}",
+            "baseline_f1": f"{body.get('baseline_f1', 0):.3f}",
+            "llm_text": llm_text,
+            "llm_accuracy": f"{llm_first.get('accuracy', 0):.3f}" if llm_first else "",
+            "llm_precision": f"{llm_first.get('precision', 0):.3f}" if llm_first else "",
+            "llm_recall": f"{llm_first.get('recall', 0):.3f}" if llm_first else "",
+            "llm_f1": f"{llm_first.get('f1', 0):.3f}" if llm_first else "",
+            "llm_status": llm_status or "offline",
+        }
+
+        file_exists = target_path.is_file()
+        with target_path.open("a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fields)
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow(row)
+
+        return {"success": True, "filename": target_path.name}
+
+    def _handle_benchmark_run(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Execute batch benchmark on a dataset file."""
+        cases_file = Path(body.get("cases_file", "my_cases.csv")).name
+        output_file = Path(body.get("output_file", "batch_eval_results.csv")).name
+
+        cases_path = BASE_DIR / cases_file
+        output_path = BASE_DIR / output_file
+        models = body.get("models", [])
+
+        cases = load_cases(cases_path)
+        run_cli_cases(
+            cases=cases,
+            output=output_path,
+            llm_model=None,
+            max_distance=2,
+            llm_models=models,
         )
-        self.correct_button.configure(state="normal")
 
-    def _show_error(self, message: str) -> None:
-        """Show an actionable model error and restore the button."""
-        self.status_var.set("●  Error")
-        self.correct_button.configure(state="normal")
-        messagebox.showerror("Correction failed", message)
+        return {
+            "success": True,
+            "cases_count": len(cases),
+            "output_file": output_path.name,
+        }
 
-    def _clear(self) -> None:
-        """Reset the editor and result panels."""
-        self.input_text.delete("1.0", "end")
-        self._set_output(self.baseline_output, "")
-        self._set_output(self.llm_output, "")
-        self.details_var.set("Run a correction to see detected errors and model details.")
-        self.baseline_meta_var.set("Deterministic • Offline")
-        self.llm_meta_var.set("Optional • Model not run")
-        self.status_var.set("●  Ready")
-        self.last_result = None
 
-    def _save_csv(self) -> None:
-        """Save the current correction as a row compatible with the CLI CSV."""
-        if self.last_result is None:
-            messagebox.showinfo("Nothing to save", "Run a correction before exporting.")
+def start_server(host: str = "127.0.0.1", port: int = 8765) -> HTTPServer:
+    """Start the multi-threaded HTTP server in a background thread."""
+    server = HTTPServer((host, port), LexiFixRequestHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server
+
+
+def main() -> None:
+    """Application entry point with native desktop window and browser support."""
+    parser = argparse.ArgumentParser(description="LexiFix AI — Spelling Intelligence Studio")
+    parser.add_argument("--host", default="127.0.0.1", help="Host interface (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=8765, help="Port to serve on (default: 8765)")
+    parser.add_argument("--browser", action="store_true", help="Launch in default browser instead of native window")
+    parser.add_argument("--no-open", action="store_true", help="Start server without launching window or browser")
+    args = parser.parse_args()
+
+    port = find_free_port(args.port)
+    url = f"http://{args.host}:{port}/"
+    server = start_server(args.host, port)
+
+    print("\n" + "=" * 65)
+    print("   ✦ LEXIFIX AI — SPELLING INTELLIGENCE STUDIO v2.0")
+    print(f"   ⚡ Local Server: {url}")
+    print("   ✓ Deterministic NLP Baseline: Active & Offline")
+    print("   ✓ Transformer Models: Ready")
+    print("=" * 65 + "\n")
+
+    if args.no_open:
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nShutting down LexiFix AI server...")
+            server.shutdown()
+        return
+
+    # Attempt native window launch with pywebview
+    use_webview = not args.browser
+    if use_webview:
+        try:
+            import webview
+
+            window = webview.create_window(
+                "LexiFix AI — Spelling Intelligence Studio",
+                url=url,
+                width=1280,
+                height=860,
+                min_size=(960, 680),
+                text_select=True,
+            )
+            webview.start()
+            server.shutdown()
             return
-        path = filedialog.asksaveasfilename(
-            title="Save correction result",
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-        )
-        if not path:
-            return
-        fields = list(self.last_result)
-        with Path(path).open("w", newline="", encoding="utf-8") as stream:
-            writer = csv.DictWriter(stream, fieldnames=fields)
-            writer.writeheader()
-            writer.writerow(self.last_result)
-        self._load_csv(Path(path))
-        self._show_view("csv")
-        self.status_var.set(f"Saved: {Path(path).name}")
+        except Exception as exc:
+            print(f"[Notice] Desktop window could not initialize ({exc}). Falling back to web browser...")
+
+    # Fallback to default browser
+    import webbrowser
+    webbrowser.open(url)
+    print(f"Opened LexiFix AI in default browser: {url}")
+    print("Press Ctrl+C to terminate.")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nShutting down LexiFix AI server...")
+        server.shutdown()
 
 
 if __name__ == "__main__":
-    LexiFixApp().mainloop()
+    main()

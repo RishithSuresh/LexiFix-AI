@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LexiFix AI — Spelling Intelligence Studio</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: ['class', '[data-theme="dark"]'],
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              300: '#a5b4fc',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
+            },
+            dark: {
+              base: '#080b11',
+              sidebar: '#0d121d',
+              surface: '#111827',
+              elevated: '#162032',
+              border: '#1e293b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-[#080b11] text-slate-100 flex flex-col h-screen select-none overflow-hidden">
+
+  <!-- Top Global Header -->
+  <header class="h-14 border-b border-slate-800/80 bg-[#0d121d]/90 backdrop-blur-md px-5 flex items-center justify-between shrink-0 z-20">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-base tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">LexiFix AI</span>
+          <span class="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Studio v2.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center System Status Badge -->
+    <div class="hidden md:flex items-center gap-2 text-xs text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-800">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span id="header-status-text">NLP Baseline Engine: Ready (Offline)</span>
+      <span class="text-slate-600">|</span>
+      <span id="header-device-badge" class="text-slate-300 font-mono text-[11px]">PyTorch CPU</span>
+    </div>
+
+    <!-- Header Actions -->
+    <div class="flex items-center gap-2">
+      <button id="btn-theme-toggle" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors" title="Toggle Light/Dark Theme">
+        <svg id="theme-icon-sun" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <svg id="theme-icon-moon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+      </button>
+
+      <button id="btn-help-modal" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors" title="Keyboard Shortcuts & Help (Press ?)">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Layout Frame -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- Modern Sidebar -->
+    <aside class="w-64 border-r border-slate-800/80 bg-[#0d121d] flex flex-col justify-between shrink-0 p-3 select-none">
+      <div class="space-y-1">
+        <div class="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Workspace</div>
+        
+        <nav class="space-y-1">
+          <button data-nav="studio" class="nav-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 transition-all">
+            <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+            <span>Live Studio</span>
+            <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">01</span>
+          </button>
+
+          <button data-nav="explorer" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <span>CSV Benchmarks</span>
+            <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">02</span>
+          </button>
+
+          <button data-nav="batch" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+            </svg>
+            <span>Batch Evaluator</span>
+            <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">03</span>
+          </button>
+
+          <button data-nav="explain" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+            <span>NLP Sandbox</span>
+            <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">04</span>
+          </button>
+
+          <button data-nav="settings" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span>Settings</span>
+            <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">05</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Sidebar Footer Card -->
+      <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800/80 text-xs space-y-2">
+        <div class="flex items-center justify-between text-slate-400">
+          <span class="font-medium text-slate-300">LexiFix AI Core</span>
+          <span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-emerald-400">Active</span>
+        </div>
+        <p class="text-[11px] text-slate-400 leading-relaxed">
+          Comparing deterministic noisy-channel NLP against Transformer text2text models.
+        </p>
+        <div class="pt-1 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+          <span>Transformers 4.40+</span>
+          <span>Torch 2.x</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main View Content Area -->
+    <main class="flex-1 overflow-y-auto bg-[#080b11] p-6">
+
+      <!-- =================== VIEW 1: LIVE STUDIO =================== -->
+      <section id="view-studio" class="space-y-6 max-w-6xl mx-auto">
+        
+        <!-- Header Banner -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-800/60">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              Spelling Correction Studio
+            </h1>
+            <p class="text-xs text-slate-400 mt-1">
+              Deterministic noisy-channel candidate ranking side-by-side with Transformer language models.
+            </p>
+          </div>
+
+          <!-- Quick Samples Pills -->
+          <div class="flex items-center flex-wrap gap-2 text-xs">
+            <span class="text-slate-500 text-[11px] uppercase tracking-wider font-semibold">Try sample:</span>
+            <button class="sample-chip px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors" data-sample="I recieve the mesage from my frend.">
+              "recieve the mesage..."
+            </button>
+            <button class="sample-chip px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors" data-sample="This is a beautifull and usefull example.">
+              "beautifull and usefull..."
+            </button>
+            <button class="sample-chip px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors" data-sample="The quick brown fox jumpd over the lazy dog.">
+              "fox jumpd over..."
+            </button>
+          </div>
+        </div>
+
+        <!-- Configuration Bar Card -->
+        <div class="surface-card p-4 space-y-4">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            
+            <!-- Models Selector Pills -->
+            <div class="flex-1 space-y-2">
+              <label class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <span>Select Models for Comparison</span>
+                <span class="text-[10px] text-slate-500 lowercase">(baseline always runs)</span>
+              </label>
+
+              <div class="flex flex-wrap gap-2">
+                <label class="model-checkbox-label cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-indigo-500/40 text-xs font-medium text-indigo-300 transition-all select-none">
+                  <input type="checkbox" value="vennify/t5-base-grammar-correction" class="model-check form-checkbox h-3.5 w-3.5 text-indigo-600 rounded bg-slate-800 border-slate-700" checked>
+                  <span>vennify/t5-base (Grammar)</span>
+                  <span class="text-[9px] px-1 rounded bg-indigo-500/20 text-indigo-300">Recommended</span>
+                </label>
+
+                <label class="model-checkbox-label cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 hover:border-slate-700 transition-all select-none">
+                  <input type="checkbox" value="vennify/t5-small-grammar-correction" class="model-check form-checkbox h-3.5 w-3.5 text-indigo-600 rounded bg-slate-800 border-slate-700">
+                  <span>vennify/t5-small (Fast)</span>
+                </label>
+
+                <label class="model-checkbox-label cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 hover:border-slate-700 transition-all select-none">
+                  <input type="checkbox" value="google/flan-t5-small" class="model-check form-checkbox h-3.5 w-3.5 text-indigo-600 rounded bg-slate-800 border-slate-700">
+                  <span>google/flan-t5-small</span>
+                </label>
+
+                <button id="btn-toggle-custom-model" class="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-dashed border-slate-700 hover:border-slate-500 text-xs text-slate-400 hover:text-white transition-all flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  <span>Custom Model</span>
+                </button>
+              </div>
+
+              <!-- Custom Model Input Drawer -->
+              <div id="custom-model-drawer" class="hidden pt-2 flex items-center gap-2">
+                <input id="input-custom-model" type="text" placeholder="e.g. prithivida/grammar_error_correcter_v1" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono">
+                <span class="text-[11px] text-slate-500">Hugging Face checkpoint identifier or local directory</span>
+              </div>
+            </div>
+
+            <!-- Baseline Settings (Max Distance) -->
+            <div class="flex items-center gap-4 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-800/80 pt-3 lg:pt-0 lg:pl-4">
+              <div>
+                <div class="flex justify-between items-center text-xs mb-1">
+                  <span class="text-slate-400 font-medium">Max Edit Distance:</span>
+                  <span id="label-max-distance" class="text-indigo-400 font-mono font-bold ml-2">2 edits</span>
+                </div>
+                <input id="slider-max-distance" type="range" min="1" max="3" step="1" value="2" class="w-32 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Input Editor Card -->
+        <div class="surface-card p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <label for="input-text" class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <span>Input Text</span>
+              <span id="detected-count-badge" class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30">
+                0 errors detected
+              </span>
+            </label>
+
+            <div class="flex items-center gap-2 text-xs">
+              <button id="btn-toggle-expected" class="text-slate-400 hover:text-indigo-300 transition-colors flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>Add Ground Truth</span>
+              </button>
+              <span class="text-slate-700">|</span>
+              <button id="btn-clear-input" class="text-slate-400 hover:text-rose-400 transition-colors">Clear</button>
+            </div>
+          </div>
+
+          <div class="relative">
+            <textarea id="input-text" rows="3" class="w-full bg-slate-950/80 border border-slate-800/90 rounded-xl p-3.5 text-slate-100 text-sm font-sans placeholder-slate-600 focus:outline-none focus:border-indigo-500/80 focus:ring-1 focus:ring-indigo-500/40 transition-all resize-y" placeholder="Type or paste text with spelling errors...">I recieve the mesage from my frend.</textarea>
+          </div>
+
+          <!-- Optional Expected Ground Truth Input -->
+          <div id="expected-container" class="hidden p-3 bg-slate-900/50 rounded-lg border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-400 font-medium">Expected Ground Truth (for Accuracy & F1 evaluation):</span>
+              <button id="btn-remove-expected" class="text-slate-500 hover:text-slate-300 text-[11px]">Hide</button>
+            </div>
+            <input id="expected-text" type="text" placeholder="e.g. I receive the message from my friend." value="I receive the message from my friend." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <!-- Action & Stats Bar -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <div class="flex items-center gap-4 text-xs text-slate-500 font-mono">
+              <span id="stat-words">7 words</span>
+              <span>•</span>
+              <span id="stat-chars">36 characters</span>
+              <span id="live-detected-preview" class="text-amber-400/90 font-sans"></span>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <button id="btn-correct" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold tracking-wide shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none">
+                <svg id="correct-spinner" class="w-4 h-4 hidden animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span id="correct-btn-text">✦ Correct & Compare</span>
+                <span class="hidden sm:inline-block text-[10px] bg-black/30 px-1.5 py-0.5 rounded text-indigo-200 font-mono">Ctrl+↵</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Output Cards Grid -->
+        <div id="results-container" class="space-y-4">
+
+          <!-- Card 1: Baseline NLP Output -->
+          <div id="card-baseline" class="surface-card p-5 space-y-4 border-l-4 border-l-indigo-500">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="w-3 h-3 rounded-full bg-indigo-500 shadow shadow-indigo-500/50"></span>
+                <h3 class="font-bold text-sm tracking-wide text-white">Deterministic Python NLP Baseline</h3>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Noisy-Channel</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">⚡ Instant (Offline)</span>
+              </div>
+
+              <!-- View Mode Switcher & Copy -->
+              <div class="flex items-center gap-2">
+                <div class="bg-slate-900 p-0.5 rounded-lg border border-slate-800 flex text-xs">
+                  <button class="view-mode-btn active px-2.5 py-1 rounded-md text-white bg-slate-800 font-medium" data-target="baseline" data-mode="diff">Visual Diff</button>
+                  <button class="view-mode-btn px-2.5 py-1 rounded-md text-slate-400 hover:text-white" data-target="baseline" data-mode="clean">Clean Text</button>
+                  <button class="view-mode-btn px-2.5 py-1 rounded-md text-slate-400 hover:text-white" data-target="baseline" data-mode="explain">Explainability</button>
+                </div>
+
+                <button class="btn-copy p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-colors" data-copy-target="baseline" title="Copy to clipboard">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="p-4 bg-slate-950/70 rounded-xl border border-slate-800/80 min-h-[72px] flex items-center">
+              <div id="baseline-output-diff" class="diff-container text-slate-200">
+                <span class="text-slate-500 italic text-xs">Run correction to view results...</span>
+              </div>
+              <div id="baseline-output-clean" class="hidden text-slate-200 text-sm font-sans leading-relaxed"></div>
+              <div id="baseline-output-explain" class="hidden w-full space-y-3"></div>
+            </div>
+
+            <!-- Baseline Metrics Footer (If expected provided) -->
+            <div id="baseline-metrics-bar" class="hidden pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between text-xs text-slate-400 font-mono">
+              <div class="flex items-center gap-4">
+                <span>Accuracy: <strong id="m-baseline-acc" class="text-indigo-300">100%</strong></span>
+                <span>Precision: <strong id="m-baseline-prec" class="text-emerald-300">1.00</strong></span>
+                <span>Recall: <strong id="m-baseline-rec" class="text-emerald-300">1.00</strong></span>
+                <span>F1 Score: <strong id="m-baseline-f1" class="text-emerald-300">1.00</strong></span>
+              </div>
+              <span id="baseline-latency" class="text-[11px] text-slate-500">Latency: 0ms</span>
+            </div>
+          </div>
+
+          <!-- Dynamic LLM Cards will be mounted here -->
+          <div id="llm-cards-grid" class="space-y-4"></div>
+
+        </div>
+
+        <!-- Export & Save Run Action Bar -->
+        <div id="export-bar" class="hidden surface-elevated p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="text-xs text-slate-300 font-medium">Comparison run complete. Export result to project benchmark history?</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="btn-save-run-csv" class="px-3.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+              <span>Save Row to CSV</span>
+            </button>
+            <button id="btn-jump-explorer" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors">
+              View Benchmarks →
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+
+      <!-- =================== VIEW 2: CSV BENCHMARKS EXPLORER =================== -->
+      <section id="view-explorer" class="hidden space-y-6 max-w-7xl mx-auto">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-800/60">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              Benchmark & CSV Results Explorer
+            </h1>
+            <p class="text-xs text-slate-400 mt-1">
+              Inspect test datasets, evaluate model metrics, and analyze comparative accuracy, precision, and F1 scores.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <select id="csv-file-select" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+              <option value="">Loading CSV files...</option>
+            </select>
+            <button id="btn-refresh-csv" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-colors" title="Reload CSV">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-cards-grid">
+          <div class="surface-card p-4 space-y-1">
+            <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Test Cases</span>
+            <div id="kpi-total-cases" class="text-2xl font-bold text-white font-mono">—</div>
+            <span class="text-[11px] text-slate-500">Evaluated examples</span>
+          </div>
+
+          <div class="surface-card p-4 space-y-1 border-t-2 border-t-indigo-500">
+            <span class="text-xs text-indigo-400 font-medium uppercase tracking-wider">Baseline Mean F1</span>
+            <div id="kpi-baseline-f1" class="text-2xl font-bold text-white font-mono">—</div>
+            <span class="text-[11px] text-slate-500">Token-level correction</span>
+          </div>
+
+          <div class="surface-card p-4 space-y-1 border-t-2 border-t-purple-500">
+            <span class="text-xs text-purple-400 font-medium uppercase tracking-wider">LLM Mean F1</span>
+            <div id="kpi-llm-f1" class="text-2xl font-bold text-white font-mono">—</div>
+            <span id="kpi-llm-name-sub" class="text-[11px] text-slate-500">Transformer text2text</span>
+          </div>
+
+          <div class="surface-card p-4 space-y-1 border-t-2 border-t-emerald-500">
+            <span class="text-xs text-emerald-400 font-medium uppercase tracking-wider">Word Accuracy</span>
+            <div id="kpi-accuracy-comp" class="text-2xl font-bold text-emerald-400 font-mono">—</div>
+            <span class="text-[11px] text-slate-500">Positional matching</span>
+          </div>
+        </div>
+
+        <!-- Filter & Table Toolbar -->
+        <div class="surface-card p-4 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="relative flex-1 max-w-md">
+              <input id="csv-search-input" type="text" placeholder="Filter cases by keyword (input, expected, error)..." class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+              <svg class="w-4 h-4 text-slate-500 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+
+            <div class="flex items-center gap-2 text-xs text-slate-400">
+              <span id="csv-row-counter">Showing 0 rows</span>
+            </div>
+          </div>
+
+          <!-- Data Grid -->
+          <div class="data-table-container max-h-[520px]">
+            <table class="data-table" id="benchmark-table">
+              <thead id="benchmark-thead">
+                <tr><th>Loading...</th></tr>
+              </thead>
+              <tbody id="benchmark-tbody">
+                <tr><td class="text-center py-8 text-slate-500">Select a CSV file above</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- =================== VIEW 3: BATCH RUNNER =================== -->
+      <section id="view-batch" class="hidden space-y-6 max-w-4xl mx-auto">
+        <div class="pb-2 border-b border-slate-800/60">
+          <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            Batch Evaluation Runner
+          </h1>
+          <p class="text-xs text-slate-400 mt-1">
+            Execute spelling correction and evaluation across an entire dataset file (`my_cases.csv`).
+          </p>
+        </div>
+
+        <div class="surface-card p-6 space-y-6">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                Dataset Cases File
+              </label>
+              <select id="batch-cases-file" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                <option value="my_cases.csv">my_cases.csv (Default test cases)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                Target Models
+              </label>
+              <div class="space-y-2">
+                <label class="flex items-center gap-2 text-xs text-slate-300">
+                  <input type="checkbox" id="batch-check-baseline" checked disabled class="form-checkbox text-indigo-600 rounded bg-slate-800 border-slate-700">
+                  <span>Deterministic Python NLP Baseline (Always included)</span>
+                </label>
+                <label class="flex items-center gap-2 text-xs text-slate-300">
+                  <input type="checkbox" id="batch-check-t5" checked class="form-checkbox text-indigo-600 rounded bg-slate-800 border-slate-700">
+                  <span>vennify/t5-base-grammar-correction (Optional Transformer)</span>
+                </label>
+                <label class="flex items-center gap-2 text-xs text-slate-300">
+                  <input type="checkbox" id="batch-check-flan" class="form-checkbox text-indigo-600 rounded bg-slate-800 border-slate-700">
+                  <span>google/flan-t5-small (General model for contrast)</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                Output Destination CSV
+              </label>
+              <input id="batch-output-filename" type="text" value="batch_eval_results.csv" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+            </div>
+          </div>
+
+          <!-- Progress Box -->
+          <div id="batch-progress-box" class="hidden p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between text-xs font-medium">
+              <span id="batch-progress-status" class="text-indigo-400">Evaluating cases...</span>
+              <span id="batch-progress-pct" class="text-slate-400 font-mono">0%</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div id="batch-progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 w-0 transition-all duration-300"></div>
+            </div>
+            <div id="batch-log-output" class="text-[11px] font-mono text-slate-400 max-h-36 overflow-y-auto space-y-1 pt-1"></div>
+          </div>
+
+          <div class="pt-2">
+            <button id="btn-start-batch" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold tracking-wider uppercase shadow-lg shadow-indigo-600/25 transition-all flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>Run Batch Evaluation</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- =================== VIEW 4: EXPLAINABILITY SANDBOX =================== -->
+      <section id="view-explain" class="hidden space-y-6 max-w-5xl mx-auto">
+        <div class="pb-2 border-b border-slate-800/60">
+          <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            Explainable NLP & Vocabulary Sandbox
+          </h1>
+          <p class="text-xs text-slate-400 mt-1">
+            Inspect the underlying vocabulary frequencies, Levenshtein edit distance, and heuristic tie-breaking mechanics.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <!-- Test Word Card -->
+          <div class="surface-card p-5 space-y-4">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+              Single Word Diagnostic
+            </h2>
+            <p class="text-xs text-slate-400">
+              Type any word to trace candidate extraction, distance filtering, and tie-breaking.
+            </p>
+
+            <div class="flex gap-2">
+              <input id="explain-word-input" type="text" placeholder="e.g. frend, jumpd, recieve" value="recieve" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+              <button id="btn-explain-word" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-semibold text-white transition-colors">
+                Inspect
+              </button>
+            </div>
+
+            <!-- Diagnostic Results -->
+            <div id="explain-result-card" class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-slate-400">Status in Vocabulary:</span>
+                <span id="explain-vocab-status" class="text-xs font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">Out of Vocabulary</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-slate-400">Proposed Correction:</span>
+                <span id="explain-best-word" class="text-sm font-mono font-bold text-emerald-400">receive</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-slate-400">Edit Distance:</span>
+                <span id="explain-distance" class="text-xs font-mono text-indigo-300">d = 2</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-slate-400">Confidence Score:</span>
+                <span id="explain-confidence" class="text-xs font-mono text-indigo-300">0.83 (83%)</span>
+              </div>
+
+              <div class="pt-2 border-t border-slate-800">
+                <span class="text-[11px] text-slate-400 font-medium block mb-2">Candidates within max distance:</span>
+                <div id="explain-candidates-list" class="flex flex-wrap gap-1.5 text-xs"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vocabulary Corpus Overview Card -->
+          <div class="surface-card p-5 space-y-4">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              Corpus Frequency Distribution
+            </h2>
+            <p class="text-xs text-slate-400">
+              The deterministic noisy-channel ranks words using corpus frequencies.
+            </p>
+
+            <div class="grid grid-cols-2 gap-3 text-xs font-mono">
+              <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <span class="text-slate-500 text-[10px] uppercase">Unique Vocabulary</span>
+                <div id="stat-vocab-size" class="text-lg font-bold text-white mt-1">94 words</div>
+              </div>
+              <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <span class="text-slate-500 text-[10px] uppercase">Corpus Tokens</span>
+                <div id="stat-corpus-tokens" class="text-lg font-bold text-white mt-1">138 tokens</div>
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <span class="text-xs font-semibold text-slate-400">Top Frequency Lexicon:</span>
+              <div id="top-lexicon-chips" class="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pt-1"></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+
+      <!-- =================== VIEW 5: SETTINGS =================== -->
+      <section id="view-settings" class="hidden space-y-6 max-w-4xl mx-auto">
+        <div class="pb-2 border-b border-slate-800/60">
+          <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            Environment & Model Settings
+          </h1>
+          <p class="text-xs text-slate-400 mt-1">
+            System configuration, hardware acceleration status, and default behaviors.
+          </p>
+        </div>
+
+        <div class="surface-card p-6 space-y-6">
+          <div class="space-y-4">
+            <h2 class="text-sm font-bold text-white border-b border-slate-800 pb-2">Hardware & Runtime</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
+              <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <span class="text-slate-500 block text-[10px] uppercase">Execution Device</span>
+                <span id="sys-device" class="text-white font-semibold text-sm">PyTorch (CPU)</span>
+              </div>
+              <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <span class="text-slate-500 block text-[10px] uppercase">PyTorch Version</span>
+                <span id="sys-torch" class="text-white font-semibold text-sm">2.x</span>
+              </div>
+              <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <span class="text-slate-500 block text-[10px] uppercase">Hugging Face Transformers</span>
+                <span id="sys-transformers" class="text-white font-semibold text-sm">4.40+</span>
+              </div>
+              <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <span class="text-slate-500 block text-[10px] uppercase">Desktop Runtime</span>
+                <span id="sys-runtime" class="text-emerald-400 font-semibold text-sm">pywebview (Native WebView2)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <h2 class="text-sm font-bold text-white border-b border-slate-800 pb-2">Interface Preferences</h2>
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-xs font-medium text-white block">Theme Mode</span>
+                <span class="text-[11px] text-slate-400">Switch between dark glassmorphism and crisp light theme.</span>
+              </div>
+              <select id="settings-theme-select" class="bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-white">
+                <option value="dark">Dark Theme (Default)</option>
+                <option value="light">Light Theme</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Case Inspection Modal -->
+  <div id="case-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <span>Row Inspection Detail</span>
+        </h3>
+        <button id="btn-close-modal" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-4 text-xs font-sans" id="modal-body-content">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Help & Shortcuts Modal -->
+  <div id="help-modal" class="modal-overlay">
+    <div class="modal-content max-w-md">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white">LexiFix AI Shortcuts</h3>
+        <button id="btn-close-help" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-5 space-y-3 text-xs">
+        <div class="flex items-center justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-300">Run Correction</span>
+          <kbd class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-indigo-300">Ctrl + Enter</kbd>
+        </div>
+        <div class="flex items-center justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-300">Live Studio Tab</span>
+          <kbd class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-slate-300">Alt + 1</kbd>
+        </div>
+        <div class="flex items-center justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-300">Benchmarks Explorer</span>
+          <kbd class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-slate-300">Alt + 2</kbd>
+        </div>
+        <div class="flex items-center justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-300">Batch Evaluator</span>
+          <kbd class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-slate-300">Alt + 3</kbd>
+        </div>
+        <div class="flex items-center justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-300">Toggle Theme</span>
+          <kbd class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-slate-300">Alt + T</kbd>
+        </div>
+        <div class="flex items-center justify-between py-1">
+          <span class="text-slate-300">Close Modals</span>
+          <kbd class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-slate-300">Escape</kbd>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript Bundle -->
+  <script src="/app.js"></script>
+</body>
+</html>

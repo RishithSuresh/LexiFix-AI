@@ -24,29 +24,32 @@ This project compares two spelling-correction approaches:
 
 ## Run
 
-### Desktop interface
+### Modern Desktop & Studio Interface
 
-The easiest way to use LexiFix AI is the Tkinter desktop application:
+The easiest way to use LexiFix AI is the modern desktop application:
 
 ```powershell
 & "C:\Users\rishi\anaconda3\envs\nlp\python.exe" .\app.py
 ```
 
-Paste text into the input box, click **Correct and compare**, and inspect the
-Python NLP baseline beside one or more LLM results. Select multiple presets
-in the model list, or enter a custom Hugging Face model identifier. Leave all
-LLM choices unselected for an offline baseline-only run. Use **Save result as
-CSV** to export the current comparison.
+LexiFix AI launches in a native, high-DPI desktop window powered by WebView2 (with instant fallback to your default browser via `--browser` or if headless).
 
-Open the **CSV comparisons** tab to inspect generated result files in a
-scrollable table. The tab automatically loads the latest available comparison
-file (`multi_model_results.csv`, `llm_comparison_results.csv`,
-`my_results.csv`, or `spelling_correction_results.csv`). Use **Open CSV file**
-to select another result file, or **Refresh** after running a CLI comparison.
+**Core Studio Features:**
+- **Live Studio (01):** Paste text or pick quick test samples. Compare the deterministic Python NLP baseline side-by-side with Transformer LLM models (`vennify/t5-base-grammar-correction`, `vennify/t5-small`, `google/flan-t5-small`, or custom Hugging Face checkpoints).
+- **Interactive Visual Diff:** Real-time word-level diffing highlighting deleted misspellings in red strikethrough and corrected tokens in emerald green.
+- **Explainability Inspector:** Inspect candidate ranking, Levenshtein edit distance ($d$), and corpus frequency ($f$) for each token.
+- **Live Accuracy & Metrics:** Enter optional ground truth text to immediately calculate Word Accuracy %, Token Precision, Recall, and F1 score.
+- **CSV Benchmarks Explorer (02):** Browse, filter, sort, and inspect comparison CSV files (`multi_model_results.csv`, `my_results.csv`, etc.) with KPI summary cards and detailed row inspection modals.
+- **Batch Evaluator (03):** Run batch benchmark evaluations directly from the UI with animated progress tracking.
+- **NLP Sandbox (04):** Test single words, view candidates, and explore the internal corpus frequency distribution.
+- **Settings & Theme (05):** Toggle between dark glassmorphism and crisp light themes, and inspect PyTorch/device status.
 
-The interface uses a clean card layout, a restrained color palette, clear
-primary and secondary actions, model-status indicators, and larger readable
-text areas for comparing results.
+Launch flags:
+```powershell
+python app.py            # Native desktop window
+python app.py --browser  # Open directly in default web browser
+python app.py --port 9000 --no-open  # Headless server mode
+```
 
 ```powershell
 & "C:\Users\rishi\anaconda3\envs\nlp\python.exe" .\run_comparison.py
@@ -123,11 +126,16 @@ calibrated probability.
 LexiFix AI/
 ├── spelling_correction.py       # NLP and LLM correction components
 ├── run_comparison.py            # CLI runner and CSV evaluation
-├── app.py                       # Tkinter desktop user interface
+├── app.py                       # Modern desktop & studio application server
+├── web/                         # Modern frontend application (HTML/CSS/JS)
+│   ├── index.html               # Single-page studio interface
+│   ├── styles.css               # Design system & visual diff styles
+│   └── app.js                   # Reactive UI logic & analytics
 ├── my_cases.csv                 # Example labeled input
 ├── spelling_correction_results.csv
 ├── tests/test_spelling_correction.py
 ├── tests/test_run_comparison.py
+├── tests/test_app.py
 ├── requirements.txt
 └── README.md
 ```
