@@ -126,6 +126,14 @@ function cacheDOMElements() {
   dom.statCorpusTokens = document.getElementById('stat-corpus-tokens');
   dom.topLexiconChips = document.getElementById('top-lexicon-chips');
 
+  // Model Training Elements
+  dom.trainTextInput = document.getElementById('train-text-input');
+  dom.btnTrainModel = document.getElementById('btn-train-model');
+  dom.trainSpinner = document.getElementById('train-spinner');
+  dom.trainBtnText = document.getElementById('train-btn-text');
+  dom.trainStatusBadge = document.getElementById('train-status-badge');
+  dom.trainPresetChips = document.querySelectorAll('.train-preset-chip');
+
   // Modals & Header
   dom.btnThemeToggle = document.getElementById('btn-theme-toggle');
   dom.themeIconSun = document.getElementById('theme-icon-sun');
@@ -152,9 +160,24 @@ function bindEvents() {
   }
 
   // Real-time input analysis
-  dom.inputText.addEventListener('input', updateInputStats);
+  const sampleMap = {
+    "I recieve the mesage from my frend.": "I receive the message from my friend.",
+    "This is a beautifull and usefull example.": "This is a beautiful and useful example.",
+    "The quick brown fox jumpd over the lazy dog.": "The quick brown fox jumped over the lazy dog."
+  };
+
+  dom.inputText.addEventListener('input', () => {
+    // If the user types custom text and the ground truth box is hidden, clear leftover sample ground truth
+    if (!sampleMap[dom.inputText.value] && dom.expectedContainer.classList.contains('hidden')) {
+      dom.expectedText.value = '';
+    }
+    updateInputStats();
+  });
+
   dom.btnClearInput.addEventListener('click', () => {
     dom.inputText.value = '';
+    dom.expectedText.value = '';
+    dom.expectedContainer.classList.add('hidden');
     updateInputStats();
     dom.inputText.focus();
   });
@@ -178,6 +201,13 @@ function bindEvents() {
   dom.sampleChips.forEach(chip => {
     chip.addEventListener('click', () => {
       dom.inputText.value = chip.dataset.sample;
+      if (sampleMap[chip.dataset.sample]) {
+        dom.expectedText.value = sampleMap[chip.dataset.sample];
+        dom.expectedContainer.classList.remove('hidden');
+      } else {
+        dom.expectedText.value = '';
+        dom.expectedContainer.classList.add('hidden');
+      }
       updateInputStats();
       triggerCorrection();
     });
@@ -241,6 +271,19 @@ function bindEvents() {
   });
   dom.explainWordInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') explainWord(dom.explainWordInput.value.trim());
+  });
+
+  // Model Training Events
+  if (dom.btnTrainModel) {
+    dom.btnTrainModel.addEventListener('click', handleTrainModel);
+  }
+  dom.trainPresetChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (dom.trainTextInput) {
+        const val = dom.trainTextInput.value.trim();
+        dom.trainTextInput.value = val ? `${val}\n${chip.dataset.preset}` : chip.dataset.preset;
+      }
+    });
   });
 
   // Modals & Shortcuts
@@ -356,7 +399,9 @@ async function triggerCorrection() {
   }
 
   const maxDistance = parseInt(dom.sliderMaxDistance.value, 10);
-  const expectedText = dom.expectedText.value.trim();
+  const expectedText = (!dom.expectedContainer.classList.contains('hidden'))
+    ? dom.expectedText.value.trim()
+    : '';
 
   // Set processing state
   state.isProcessing = true;
@@ -969,8 +1014,11 @@ async function loadVocabularyStats() {
     state.vocabulary = data;
     state.vocabulary.set = new Set(data.top.map(item => item.word.toLowerCase()));
 
-    dom.statVocabSize.textContent = `${data.size} words`;
-    dom.statCorpusTokens.textContent = `${data.tokens} tokens`;
+    dom.statVocabSize.textContent = `${data.size.toLocaleString()} words`;
+    dom.statCorpusTokens.textContent = `${data.tokens.toLocaleString()} tokens`;
+    if (dom.trainStatusBadge) {
+      dom.trainStatusBadge.textContent = `${data.size.toLocaleString()} words loaded`;
+    }
 
     dom.topLexiconChips.innerHTML = data.top.slice(0, 40).map(item => `
       <span class="px-2.5 py-1 rounded-full bg-[#FAF7F4] border border-[#2B1C33]/20 text-[#2B1C33] text-xs font-mono hover:border-[#FF8C12] transition-colors shadow-sm">
@@ -981,6 +1029,43 @@ async function loadVocabularyStats() {
     updateInputStats();
   } catch (err) {
     console.error(err);
+  }
+}
+
+async function handleTrainModel() {
+  const text = dom.trainTextInput ? dom.trainTextInput.value.trim() : '';
+  if (!text) {
+    showToast('Please enter some text or sentences to train the model on.', 'error');
+    return;
+  }
+
+  dom.btnTrainModel.disabled = true;
+  if (dom.trainSpinner) dom.trainSpinner.classList.remove('hidden');
+  if (dom.trainBtnText) dom.trainBtnText.textContent = 'Training...';
+
+  try {
+    const res = await fetch('/api/model/train', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      showToast(`Model learned ${data.tokens_learned} tokens! Vocabulary is now ${data.vocab_size.toLocaleString()} words.`, 'success');
+      loadVocabularyStats();
+      if (dom.trainStatusBadge) {
+        dom.trainStatusBadge.textContent = `${data.vocab_size.toLocaleString()} words loaded`;
+      }
+      dom.trainTextInput.value = '';
+    } else {
+      showToast(data.error || 'Training failed', 'error');
+    }
+  } catch (err) {
+    showToast(`Training error: ${err.message}`, 'error');
+  } finally {
+    dom.btnTrainModel.disabled = false;
+    if (dom.trainSpinner) dom.trainSpinner.classList.add('hidden');
+    if (dom.trainBtnText) dom.trainBtnText.textContent = '✦ Train Model on Text';
   }
 }
 

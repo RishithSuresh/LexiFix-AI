@@ -1,12 +1,12 @@
 """Spelling detection and correction components used by LexiFix AI.
 
-The baseline follows an enhanced noisy-channel model:
-1. Candidate generation bounded by edit distance.
+The baseline follows an enhanced multi-signal noisy-channel model:
+1. Fast candidate generation via Norvig edits and Soundex phonetic indexing.
 2. Context-aware bigram language model scoring P(w_i | w_{i-1}).
 3. Phonetic matching via American Soundex rules (boosting phonetic typos).
 4. Transposition detection via Damerau-Levenshtein distance.
 5. Physical keyboard proximity weighting for QWERTY typing errors.
-6. Case and punctuation preservation.
+6. Dynamic training support for custom text corpora and domain vocabularies.
 """
 
 from __future__ import annotations
@@ -15,12 +15,11 @@ from collections import Counter
 from dataclasses import dataclass
 from importlib import import_module
 import math
+from pathlib import Path
 import re
 from typing import Iterable
 
 
-# Comprehensive vocabulary covering core English, irregular verbs, common
-# misspellings, and domain terminology for robust zero-shot detection.
 DEFAULT_CORPUS = """
 the of and to in a is that for it as was with be by on not he i this are or his
 from at which but have an had they you were their one all we can her has there
@@ -52,9 +51,26 @@ independent independence apparent appearance persistent persistence
 noticeable visible eligible legible intelligent intelligence
 software hardware computer python program develop developer test benchmark
 interface studio application dataset table visual difference compare analysis
+playing football play plays played sport sports soccer game games running
+watch watching watched movie television study studying studied science
 """.strip()
 
 WORD_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
+LETTERS = "abcdefghijklmnopqrstuvwxyz"
+
+# Path to the comprehensive 1.1M-token corpus if downloaded
+CORPUS_FILE_PATH = Path(__file__).resolve().parent / "data" / "big.txt"
+
+
+def _load_initial_corpus() -> str:
+    """Load the comprehensive 1.1M token corpus if available, else default."""
+    if CORPUS_FILE_PATH.is_file():
+        try:
+            return CORPUS_FILE_PATH.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    return DEFAULT_CORPUS
+
 
 # Standard QWERTY keyboard coordinate map for physical typo modeling
 QWERTY_COORDS: dict[str, tuple[int, int]] = {
@@ -67,6 +83,21 @@ QWERTY_COORDS: dict[str, tuple[int, int]] = {
 def _tokenize(text: str) -> list[str]:
     """Extract alphabetic words from raw text."""
     return WORD_RE.findall(text)
+
+
+def _edits1(word: str) -> set[str]:
+    """All edits that are one edit away (delete, transpose, replace, insert)."""
+    splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+    deletes = [L + R[1:] for L, R in splits if R]
+    transposes = [L + R[1] + R[0] + R[2:] for L, R in splits if len(R) > 1]
+    replaces = [L + c + R[1:] for L, R in splits if R for c in LETTERS]
+    inserts = [L + c + R for L, R in splits for c in LETTERS]
+    return set(deletes + transposes + replaces + inserts)
+
+
+def _edits2(word: str) -> set[str]:
+    """All edits that are two edits away from word."""
+    return set(e2 for e1 in _edits1(word) for e2 in _edits1(e1))
 
 
 def _soundex(word: str) -> str:
@@ -171,12 +202,12 @@ class NoisyChannelSpellCorrector:
     """Detect out-of-vocabulary words and choose likely corrections.
 
     Enhanced with contextual bigrams, phonetic Soundex heuristics,
-    Damerau-Levenshtein transposition awareness, and QWERTY keyboard distance.
+    Damerau-Levenshtein transposition awareness, and dynamic corpus training.
     """
 
     def __init__(
         self,
-        corpus: str | Iterable[str] = DEFAULT_CORPUS,
+        corpus: str | Iterable[str] | None = None,
         *,
         vocabulary: Iterable[str] | None = None,
         max_distance: int = 2,
@@ -186,8 +217,11 @@ class NoisyChannelSpellCorrector:
 
         if vocabulary is not None:
             words = list(vocabulary)
-        else:
+        elif corpus is not None:
             raw_corpus = corpus if isinstance(corpus, str) else " ".join(corpus)
+            words = _tokenize(raw_corpus)
+        else:
+            raw_corpus = _load_initial_corpus()
             words = _tokenize(raw_corpus)
 
         self.frequencies = Counter(word.lower() for word in words if word.isalpha())
@@ -211,6 +245,46 @@ class NoisyChannelSpellCorrector:
             sx = _soundex(w)
             self._soundex_index.setdefault(sx, []).append(w)
 
+    def train(self, text_or_words: str | Iterable[str]) -> int:
+        """Dynamically train the model on new text or vocabulary words.
+        
+        Extracts words, updates unigram frequencies, builds contextual bigram
+        transition probabilities, and registers phonetic Soundex indices.
+        """
+        if isinstance(text_or_words, str):
+            tokens = _tokenize(text_or_words)
+        else:
+            tokens = list(text_or_words)
+
+        tokens_lower = [t.lower() for t in tokens if t.isalpha()]
+        if not tokens_lower:
+            return 0
+
+        self.frequencies.update(tokens_lower)
+        self.vocabulary = frozenset(self.frequencies)
+        self.total_tokens = sum(self.frequencies.values())
+
+        # Update bigram transitions
+        for i in range(len(tokens_lower) - 1):
+            self.bigrams[(tokens_lower[i], tokens_lower[i + 1])] += 1
+
+        # Update Soundex index
+        for w in set(tokens_lower):
+            sx = _soundex(w)
+            self._soundex_index.setdefault(sx, [])
+            if w not in self._soundex_index[sx]:
+                self._soundex_index[sx].append(w)
+
+        return len(tokens_lower)
+
+    def train_file(self, file_path: Path | str) -> int:
+        """Train the model on an external text file."""
+        path = Path(file_path)
+        if not path.is_file():
+            raise FileNotFoundError(f"Corpus file not found: {path}")
+        content = path.read_text(encoding="utf-8", errors="replace")
+        return self.train(content)
+
     def detect(self, text: str) -> list[str]:
         """Return unique alphabetic tokens not present in the vocabulary."""
         return list(dict.fromkeys(
@@ -219,14 +293,40 @@ class NoisyChannelSpellCorrector:
         ))
 
     def _candidates(self, word: str) -> list[tuple[str, int]]:
-        candidates: list[tuple[str, int]] = []
-        for candidate in self.vocabulary:
-            if abs(len(candidate) - len(word)) > self.max_distance:
-                continue
-            distance = _edit_distance(word, candidate)
-            if distance <= self.max_distance:
-                candidates.append((candidate, distance))
-        return candidates
+        """Fast candidate extraction using edits1, Soundex index, and edits2."""
+        candidates_map: dict[str, int] = {}
+
+        # 1. Check edits1 (single deletion, transposition, substitution, insertion)
+        for cand in _edits1(word):
+            if cand in self.vocabulary:
+                candidates_map[cand] = _edit_distance(word, cand)
+
+        # 2. Check Soundex phonetic neighbors
+        sx = _soundex(word)
+        for cand in self._soundex_index.get(sx, []):
+            if abs(len(cand) - len(word)) <= self.max_distance:
+                if cand not in candidates_map:
+                    dist = _edit_distance(word, cand)
+                    if dist <= self.max_distance:
+                        candidates_map[cand] = dist
+
+        # 3. If few candidates found and max_distance >= 2, evaluate edits2
+        if len(candidates_map) < 3 and self.max_distance >= 2:
+            for cand in _edits2(word):
+                if cand in self.vocabulary and cand not in candidates_map:
+                    dist = _edit_distance(word, cand)
+                    if dist <= self.max_distance:
+                        candidates_map[cand] = dist
+
+        # 4. Fallback for custom micro-vocabularies (e.g. unit tests with < 100 words)
+        if not candidates_map and len(self.vocabulary) <= 200:
+            for cand in self.vocabulary:
+                if abs(len(cand) - len(word)) <= self.max_distance:
+                    dist = _edit_distance(word, cand)
+                    if dist <= self.max_distance:
+                        candidates_map[cand] = dist
+
+        return [(cand, dist) for cand, dist in candidates_map.items() if dist <= self.max_distance]
 
     def _score_candidate(
         self,
@@ -245,7 +345,7 @@ class NoisyChannelSpellCorrector:
         sx_cand = _soundex(candidate)
         phonetic_bonus = 3.5 if sx_query == sx_cand else 0.0
 
-        # 2. Damerau transposition bonus (e.g. 'recieve' -> 'receive' d=1 instead of 2)
+        # 2. Damerau transposition bonus (e.g. 'recieve' -> 'receive')
         dam_dist = _damerau_levenshtein_distance(word, candidate)
         transposition_bonus = 2.0 if dam_dist < distance else 0.0
 
@@ -254,7 +354,7 @@ class NoisyChannelSpellCorrector:
         if prev_word:
             p_prev = (prev_word.lower(), candidate)
             if p_prev in self.bigrams:
-                bigram_bonus += 3.0 * math.log(1 + self.bigrams[p_prev])
+                bigram_bonus += 3.5 * math.log(1 + self.bigrams[p_prev])
         if next_word:
             p_next = (candidate, next_word.lower())
             if p_next in self.bigrams:
@@ -293,13 +393,16 @@ class NoisyChannelSpellCorrector:
             score = self._score_candidate(
                 cand, normalized, dist, prev_word=prev_word, next_word=next_word
             )
-            scored_candidates.append((dist, score, cand))
+            dam_dist = _damerau_levenshtein_distance(normalized, cand)
+            # Effective distance: treats adjacent transpositions as 1 operation
+            effective_dist = min(dist, dam_dist)
+            scored_candidates.append((effective_dist, -score, cand, dist))
 
-        # Primary sort: edit distance ascending (lower distance always preferred)
-        # Secondary sort: multi-signal heuristic score descending
-        # Tertiary sort: alphabetical order for deterministic reproducibility
-        scored_candidates.sort(key=lambda item: (item[0], -item[1], item[2]))
-        best_dist, best_score, best = scored_candidates[0]
+        # Primary sort: effective distance ascending
+        # Secondary sort: multi-signal heuristic score descending (-score ascending)
+        # Tertiary sort: alphabetical order for determinism
+        scored_candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+        eff_dist, neg_score, best, best_dist = scored_candidates[0]
 
         # Calculate calibrated confidence estimate
         dam_dist = _damerau_levenshtein_distance(normalized, best)

@@ -90,3 +90,17 @@ def test_character_and_word_error_rate():
     assert word_error_rate("one two three", "one three") == round(1 / 3, 4)
     assert sentence_exact_match("Hello World!", "hello world!") is True
 
+
+def test_train_model_and_custom_inputs():
+    checker = NoisyChannelSpellCorrector()
+    corrected, changes = checker.correct("I like plaing fotball")
+    assert corrected == "I like playing football"
+
+    initial_vocab = len(checker.vocabulary)
+    learned = checker.train("Quantum computing uses qubits and superposition.")
+    assert learned > 0
+    assert "qubits" in checker.vocabulary
+    assert len(checker.vocabulary) > initial_vocab
+    c_quantum, _ = checker.correct("qubits are cool")
+    assert "qubits" in c_quantum
+

@@ -282,7 +282,7 @@
               <span class="text-[#2B1C33] font-bold">Expected Ground Truth (for Accuracy & F1 evaluation):</span>
               <button id="btn-remove-expected" class="text-[#4E3758] hover:text-[#2B1C33] text-[11px] font-medium">Hide</button>
             </div>
-            <input id="expected-text" type="text" placeholder="e.g. I receive the message from my friend." value="I receive the message from my friend." class="w-full bg-[#FFFFFF] border border-[#2B1C33]/25 rounded px-3 py-1.5 text-xs text-[#2B1C33] placeholder-[#785A85]/50 focus:outline-none focus:border-[#FF8C12] shadow-inner">
+            <input id="expected-text" type="text" placeholder="e.g. I receive the message from my friend." value="" class="w-full bg-[#FFFFFF] border border-[#2B1C33]/25 rounded px-3 py-1.5 text-xs text-[#2B1C33] placeholder-[#785A85]/50 focus:outline-none focus:border-[#FF8C12] shadow-inner">
           </div>
 
           <!-- Action & Stats Bar with 20% Amber Flare Primary Button -->
@@ -615,6 +615,50 @@
             <div class="space-y-2">
               <span class="text-xs font-bold text-[#2B1C33]">Top Frequency Lexicon:</span>
               <div id="top-lexicon-chips" class="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pt-1"></div>
+            </div>
+          </div>
+
+          <!-- Full-Width Interactive Model Training Card -->
+          <div class="col-span-1 md:col-span-2 surface-card p-5 space-y-4 border border-[#2B1C33]/20 border-t-4 border-t-[#FF8C12]">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 class="text-sm font-bold text-[#2B1C33] flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-[#FF8C12] animate-pulse"></span>
+                  Train Baseline on Custom Vocabulary & Domain Text
+                </h2>
+                <p class="text-xs text-[#4E3758] mt-0.5">
+                  Teach the deterministic NLP baseline new words, sports, slang, technical jargon, or custom corpora in real time.
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="train-status-badge" class="text-xs font-mono px-2.5 py-0.5 rounded bg-[#FAF7F4] text-[#2B1C33] border border-[#2B1C33]/20 font-bold">
+                  29,000+ words loaded
+                </span>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <textarea id="train-text-input" rows="3" class="w-full bg-[#FFFFFF] border border-[#2B1C33]/25 rounded-xl p-3 text-xs text-[#2B1C33] placeholder-[#785A85]/50 focus:outline-none focus:border-[#FF8C12] font-mono shadow-inner resize-y" placeholder="Paste custom sentences or words to train on (e.g. 'I love playing football and soccer with my friends. Computer science and artificial intelligence are fascinating.')..."></textarea>
+
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="text-[#4E3758] font-medium">Quick Presets:</span>
+                  <button class="train-preset-chip silk-chip px-2.5 py-1 rounded text-xs transition-colors" data-preset="I like playing football and basketball. Playing sports is great.">
+                    + Sports & Games
+                  </button>
+                  <button class="train-preset-chip silk-chip px-2.5 py-1 rounded text-xs transition-colors" data-preset="Software engineering, python programming, artificial intelligence, machine learning, and neural network algorithms.">
+                    + Tech & AI
+                  </button>
+                </div>
+
+                <button id="btn-train-model" class="px-5 py-2 rounded-xl bg-gradient-to-r from-[#FF8C12] via-[#FFA742] to-[#FF8C12] hover:from-[#E67B0D] hover:to-[#FF8C12] text-[#2B1C33] text-xs font-bold tracking-wide shadow-md shadow-[#FF8C12]/25 flex items-center gap-2 transition-all transform active:scale-95">
+                  <svg id="train-spinner" class="w-3.5 h-3.5 hidden animate-spin text-[#2B1C33]" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  <span id="train-btn-text">✦ Train Model on Text</span>
+                </button>
+              </div>
             </div>
           </div>
 

@@ -114,6 +114,8 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
             self.send_json(self._handle_benchmark_run(body))
         elif path == "/api/explain/word":
             self.send_json(self._handle_explain_word(body))
+        elif path == "/api/model/train":
+            self.send_json(self._handle_model_train(body))
         else:
             self.send_error(404, "Endpoint not found")
 
@@ -215,6 +217,30 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
             "phonetic_match": correction.phonetic_match,
             "confidence": round(correction.confidence, 4),
             "candidates": candidates[:15],
+        }
+
+    def _handle_model_train(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Dynamically train the baseline NLP model on custom text or corpus files."""
+        text = body.get("text", "").strip()
+        corpus_file = body.get("corpus_file", "").strip()
+        if not text and not corpus_file:
+            return {"error": "Provide 'text' or 'corpus_file' to train the model."}
+
+        tokens_learned = 0
+        if text:
+            tokens_learned += _BASELINE.train(text)
+        if corpus_file:
+            target_path = BASE_DIR / corpus_file
+            if target_path.is_file():
+                tokens_learned += _BASELINE.train_file(target_path)
+            else:
+                return {"error": f"Corpus file not found: {corpus_file}"}
+
+        return {
+            "status": "ok",
+            "tokens_learned": tokens_learned,
+            "vocab_size": len(_BASELINE.vocabulary),
+            "total_tokens": _BASELINE.total_tokens,
         }
 
     def _handle_correct(self, body: dict[str, Any]) -> dict[str, Any]:

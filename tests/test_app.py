@@ -101,3 +101,18 @@ def test_api_csv_list_and_read(server_url):
         assert "rows" in content
         assert "input_text" in content["headers"]
         assert len(content["rows"]) > 0
+
+
+def test_api_model_train(server_url):
+    payload = json.dumps({"text": "Astronauts explore galaxies and exoplanets."}).encode("utf-8")
+    req = urllib.request.Request(
+        f"{server_url}/api/model/train",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req) as response:
+        assert response.status == 200
+        data = json.loads(response.read().decode("utf-8"))
+        assert data["status"] == "ok"
+        assert data["tokens_learned"] > 0
+        assert data["vocab_size"] > 0
