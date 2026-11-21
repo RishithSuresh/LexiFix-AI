@@ -950,12 +950,13 @@ async function startBatchEvaluation() {
     });
 
     const data = await res.json();
-    if (data.status === 'ok') {
+    if (data.status === 'ok' || data.success) {
+      const count = data.cases_processed ?? data.cases_count ?? 0;
       dom.batchProgressBar.style.width = '100%';
       dom.batchProgressPct.textContent = '100%';
-      dom.batchProgressStatus.textContent = `Complete! Processed ${data.cases_processed} cases.`;
+      dom.batchProgressStatus.textContent = `Complete! Processed ${count} cases.`;
       dom.batchLogOutput.innerHTML += `<div class="text-[#FF8C12] font-bold">[${new Date().toLocaleTimeString()}] Successfully saved results to ${data.output_file}</div>`;
-      showToast(`Batch completed: ${data.cases_processed} cases evaluated`, 'success');
+      showToast(`Batch completed: ${count} cases evaluated`, 'success');
       loadCsvFileList(data.output_file);
     } else {
       throw new Error(data.error || 'Evaluation failed');

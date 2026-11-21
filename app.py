@@ -460,20 +460,28 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
         output_path = BASE_DIR / output_file
         models = body.get("models", [])
 
-        cases = load_cases(cases_path)
-        run_cli_cases(
-            cases=cases,
-            output=output_path,
-            llm_model=None,
-            max_distance=2,
-            llm_models=models,
-        )
-
-        return {
-            "success": True,
-            "cases_count": len(cases),
-            "output_file": output_path.name,
-        }
+        try:
+            cases = load_cases(cases_path)
+            run_cli_cases(
+                cases=cases,
+                output=output_path,
+                llm_model=None,
+                max_distance=2,
+                llm_models=models,
+            )
+            return {
+                "status": "ok",
+                "success": True,
+                "cases_processed": len(cases),
+                "cases_count": len(cases),
+                "output_file": output_path.name,
+            }
+        except Exception as exc:
+            return {
+                "status": "error",
+                "success": False,
+                "error": str(exc),
+            }
 
 
 def start_server(host: str = "127.0.0.1", port: int = 8765) -> HTTPServer:

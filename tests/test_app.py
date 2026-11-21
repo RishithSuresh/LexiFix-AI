@@ -116,3 +116,23 @@ def test_api_model_train(server_url):
         assert data["status"] == "ok"
         assert data["tokens_learned"] > 0
         assert data["vocab_size"] > 0
+
+
+def test_api_benchmark_run(server_url):
+    payload = json.dumps({
+        "cases_file": "my_cases.csv",
+        "output_file": "test_api_benchmark_out.csv",
+        "models": []
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        f"{server_url}/api/benchmark/run",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req) as response:
+        assert response.status == 200
+        data = json.loads(response.read().decode("utf-8"))
+        assert data["status"] == "ok"
+        assert data["success"] is True
+        assert data["cases_processed"] > 0
+        assert data["output_file"] == "test_api_benchmark_out.csv"
