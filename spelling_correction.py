@@ -147,36 +147,98 @@ class NoisyChannelSpellCorrector:
 class LLMCorrector:
     """Optional Hugging Face text-to-text corrector.
 
-    The model is loaded lazily. Use a checkpoint trained for grammar or
-    spelling correction, such as ``vennify/t5-base-grammar-correction``.
+    The model is loaded lazily. Supports both modern Transformers (5.x+) via
+    AutoModelForSeq2SeqLM as well as legacy Transformers (4.x) pipelines.
     """
 
     def __init__(self, model_name: str, task_prefix: str = "grammar:") -> None:
         self.model_name = model_name
         self.task_prefix = task_prefix
         self._pipeline = None
+        self._tokenizer = None
+        self._model = None
+        self._device = "cpu"
+
+    def _load_model(self) -> None:
+        """Load tokenizer and model with multi-version transformers compatibility."""
+        try:
+            transformers = import_module("transformers")
+        except (ImportError, AttributeError) as exc:
+            raise RuntimeError("Install transformers to use the LLM corrector.") from exc
+
+        # 1. Preferred modern path: AutoTokenizer and AutoModelForSeq2SeqLM
+        try:
+            auto_tok = getattr(transformers, "AutoTokenizer")
+            auto_model = getattr(transformers, "AutoModelForSeq2SeqLM")
+            self._tokenizer = auto_tok.from_pretrained(self.model_name)
+            self._model = auto_model.from_pretrained(self.model_name)
+
+            try:
+                torch = import_module("torch")
+                if torch.cuda.is_available():
+                    self._device = "cuda"
+                    self._model = self._model.to("cuda")
+                else:
+                    self._device = "cpu"
+            except Exception:
+                self._device = "cpu"
+
+            self._model.eval()
+            return
+        except Exception:
+            pass
+
+        # 2. Fallback to pipeline for legacy environments
+        try:
+            pipeline_fn = getattr(transformers, "pipeline")
+            try:
+                self._pipeline = pipeline_fn("text2text-generation", model=self.model_name)
+                return
+            except (KeyError, ValueError):
+                self._pipeline = pipeline_fn("text-generation", model=self.model_name)
+                return
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to load Hugging Face model '{self.model_name}': {exc}"
+            ) from exc
 
     def correct(self, text: str) -> str:
-        if self._pipeline is None:
-            # Lazy loading keeps the offline baseline fast and avoids a model
-            # download when the user did not request an LLM comparison.
-            try:
-                pipeline = getattr(import_module("transformers"), "pipeline")
-            except (ImportError, AttributeError) as exc:
-                raise RuntimeError("Install transformers to use the LLM corrector.") from exc
-            self._pipeline = pipeline("text2text-generation", model=self.model_name)
-        # Correction checkpoints can use different task prefixes. The
-        # recommended T5 grammar model expects ``grammar:``; generic models
-        # can be tested with an empty prefix.
+        if self._model is None and self._pipeline is None:
+            self._load_model()
+
         prompt = f"{self.task_prefix} {text}".strip()
-        result = self._pipeline(
-            prompt,
-            max_new_tokens=max(32, len(text.split()) * 3),
-            do_sample=False,
-        )
-        if not result or "generated_text" not in result[0]:
-            raise RuntimeError("The LLM returned no generated correction.")
-        return str(result[0]["generated_text"]).strip()
+        max_tokens = max(32, len(text.split()) * 3)
+
+        # Direct Seq2Seq execution
+        if self._model is not None and self._tokenizer is not None:
+            try:
+                torch = import_module("torch")
+                inputs = self._tokenizer(prompt, return_tensors="pt")
+                if self._device == "cuda":
+                    inputs = {k: v.to("cuda") for k, v in inputs.items()}
+                with torch.no_grad():
+                    output_tokens = self._model.generate(
+                        **inputs,
+                        max_new_tokens=max_tokens,
+                        do_sample=False,
+                    )
+                decoded = self._tokenizer.decode(output_tokens[0], skip_special_tokens=True)
+                return decoded.strip()
+            except Exception as exc:
+                raise RuntimeError(f"Error during model generation: {exc}") from exc
+
+        # Pipeline execution
+        if self._pipeline is not None:
+            result = self._pipeline(
+                prompt,
+                max_new_tokens=max_tokens,
+                do_sample=False,
+            )
+            if not result or "generated_text" not in result[0]:
+                raise RuntimeError("The LLM returned no generated correction.")
+            return str(result[0]["generated_text"]).strip()
+
+        raise RuntimeError(f"Model '{self.model_name}' could not be initialized.")
 
 
 def word_accuracy(reference: str, prediction: str) -> float:
