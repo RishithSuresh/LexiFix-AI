@@ -393,7 +393,13 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
         return files
 
     def _read_csv_file(self, filename: str) -> dict[str, Any]:
-        """Safely read and parse CSV content."""
+        """Safely read and parse CSV content.
+        
+        If the file contains raw labeled test cases (input_text and expected_text)
+        without pre-computed baseline evaluation metrics, dynamically evaluates
+        the deterministic baseline on-the-fly so users immediately see performance
+        metrics and corrections in the CSV Explorer.
+        """
         clean_name = Path(filename).name
         target = BASE_DIR / clean_name
         if not target.is_file():
@@ -404,6 +410,44 @@ class LexiFixRequestHandler(SimpleHTTPRequestHandler):
                 reader = csv.DictReader(f)
                 headers = list(reader.fieldnames or [])
                 rows = list(reader)
+
+            # If raw test cases without baseline evaluation, enrich with baseline on-the-fly
+            if rows and {"input_text", "expected_text"} <= set(headers) and "baseline_accuracy" not in headers:
+                enrich_cols = [
+                    "baseline_text",
+                    "baseline_accuracy",
+                    "baseline_precision",
+                    "baseline_recall",
+                    "baseline_f1",
+                    "detected_errors",
+                ]
+                for col in enrich_cols:
+                    if col not in headers:
+                        headers.append(col)
+
+                for row in rows:
+                    input_text = row.get("input_text", "")
+                    expected_text = row.get("expected_text", "")
+                    if input_text and expected_text:
+                        baseline_text, corrections = _BASELINE.correct(input_text)
+                        metrics = correction_metrics(input_text, expected_text, baseline_text)
+                        acc = word_accuracy(expected_text, baseline_text)
+                        row["baseline_text"] = baseline_text
+                        row["baseline_accuracy"] = f"{acc:.3f}"
+                        row["baseline_precision"] = f"{metrics['precision']:.3f}"
+                        row["baseline_recall"] = f"{metrics['recall']:.3f}"
+                        row["baseline_f1"] = f"{metrics['f1']:.3f}"
+                        row["detected_errors"] = "; ".join(
+                            c.original for c in corrections if c.distance > 0
+                        )
+                    else:
+                        row.setdefault("baseline_text", "")
+                        row.setdefault("baseline_accuracy", "")
+                        row.setdefault("baseline_precision", "")
+                        row.setdefault("baseline_recall", "")
+                        row.setdefault("baseline_f1", "")
+                        row.setdefault("detected_errors", "")
+
             return {"headers": headers, "rows": rows}
         except Exception as exc:
             return {"headers": [], "rows": [], "error": str(exc)}

@@ -100,7 +100,13 @@ def test_api_csv_list_and_read(server_url):
         assert "headers" in content
         assert "rows" in content
         assert "input_text" in content["headers"]
-        assert len(content["rows"]) > 0
+        # Verify automatic baseline metric enrichment on raw test cases
+        assert "baseline_accuracy" in content["headers"]
+        assert "baseline_f1" in content["headers"]
+        assert len(content["rows"]) >= 30
+        first_row = content["rows"][0]
+        assert float(first_row["baseline_accuracy"]) > 0.0
+        assert float(first_row["baseline_f1"]) > 0.0
 
 
 def test_api_model_train(server_url):

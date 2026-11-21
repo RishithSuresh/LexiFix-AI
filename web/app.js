@@ -92,6 +92,7 @@ function cacheDOMElements() {
   // Explorer Elements
   dom.csvFileSelect = document.getElementById('csv-file-select');
   dom.btnRefreshCsv = document.getElementById('btn-refresh-csv');
+  dom.btnRunBatchFromExplorer = document.getElementById('btn-run-batch-from-explorer');
   dom.csvSearchInput = document.getElementById('csv-search-input');
   dom.csvRowCounter = document.getElementById('csv-row-counter');
   dom.benchmarkThead = document.getElementById('benchmark-thead');
@@ -260,6 +261,14 @@ function bindEvents() {
   dom.btnRefreshCsv.addEventListener('click', () => {
     loadCsvFileList(state.currentCsvFile);
   });
+  if (dom.btnRunBatchFromExplorer) {
+    dom.btnRunBatchFromExplorer.addEventListener('click', () => {
+      switchView('batch');
+      if (state.currentCsvFile && dom.batchCasesFile) {
+        dom.batchCasesFile.value = state.currentCsvFile;
+      }
+    });
+  }
   dom.csvSearchInput.addEventListener('input', filterCsvTable);
 
   // Batch Evaluator Events
@@ -778,6 +787,11 @@ function updateKpis(rows) {
   const llmF1s = rows.map(r => parseFloat(r.llm_f1)).filter(n => !isNaN(n));
   const meanLlmF1 = llmF1s.length ? (llmF1s.reduce((a, b) => a + b, 0) / llmF1s.length) : null;
   dom.kpiLlmF1.textContent = meanLlmF1 !== null ? meanLlmF1.toFixed(3) : '—';
+
+  const sub = document.getElementById('kpi-llm-name-sub');
+  if (sub) {
+    sub.textContent = meanLlmF1 !== null ? 'Transformer text2text' : 'Requires batch run';
+  }
 
   const baseAccs = rows.map(r => parseFloat(r.baseline_accuracy)).filter(n => !isNaN(n));
   const meanBaseAcc = baseAccs.length ? (baseAccs.reduce((a, b) => a + b, 0) / baseAccs.length) : null;

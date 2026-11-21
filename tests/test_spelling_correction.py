@@ -104,3 +104,49 @@ def test_train_model_and_custom_inputs():
     c_quantum, _ = checker.correct("qubits are cool")
     assert "qubits" in c_quantum
 
+
+def test_expanded_benchmark_suite_accuracy():
+    """Verify that the baseline model achieves high accuracy (>90%) on the 30-case benchmark suite."""
+    from run_comparison import DEFAULT_CASES
+    assert len(DEFAULT_CASES) == 30
+
+    checker = NoisyChannelSpellCorrector()
+    accs = []
+    f1s = []
+    for inp, exp in DEFAULT_CASES:
+        pred, _ = checker.correct(inp)
+        acc = word_accuracy(exp, pred)
+        m = correction_metrics(inp, exp, pred)
+        accs.append(acc)
+        f1s.append(m["f1"])
+
+    mean_acc = sum(accs) / len(accs)
+    mean_f1 = sum(f1s) / len(f1s)
+    assert mean_acc >= 0.90, f"Expected mean accuracy >= 0.90, got {mean_acc:.3f}"
+    assert mean_f1 >= 0.85, f"Expected mean F1 >= 0.85, got {mean_f1:.3f}"
+
+
+def test_contractions_and_casing_preservation():
+    """Verify that uppercase, TitleCase, contractions, and punctuation are strictly preserved."""
+    checker = NoisyChannelSpellCorrector()
+    # TitleCase
+    pred_title, _ = checker.correct("Tommorow is a holiday.")
+    assert pred_title.startswith("Tomorrow")
+
+    # Contractions and punctuation
+    pred_punct, _ = checker.correct("It's beautifull, isn't it?")
+    assert "beautiful" in pred_punct
+    assert "It's" in pred_punct or "it's" in pred_punct.lower()
+    assert pred_punct.endswith("?")
+
+
+def test_qwerty_keyboard_distance_metric():
+    """Verify that adjacent QWERTY keys produce small distances compared to distant keys."""
+    from spelling_correction import _keyboard_distance
+    # 'a' and 's' are immediately adjacent horizontally (dist = 1.0)
+    assert _keyboard_distance("a", "s") == 1.0
+    # 'q' and 'w' are adjacent (dist = 1.0)
+    assert _keyboard_distance("q", "w") == 1.0
+    # 'q' and 'p' are across opposite sides of the keyboard
+    assert _keyboard_distance("q", "p") > 5.0
+

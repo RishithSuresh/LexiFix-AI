@@ -72,6 +72,8 @@ software hardware computer python program develop developer test benchmark
 interface studio application dataset table visual difference compare analysis
 playing football play plays played sport sports soccer game games running
 watch watching watched movie television study studying studied science
+galaxy galaxies star stars astronomy planet planets space universe
+it's don't isn't can't won't didn't wasn't wouldn't couldn't shouldn't they're we're you're i'm i've we'll they'll
 """.strip()
 
 # ==============================================================================
@@ -81,7 +83,13 @@ watch watching watched movie television study studying studied science
 # Generates candidate sets at edit distances 1 and 2 using alphabet transformations.
 
 WORD_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
-LETTERS = "abcdefghijklmnopqrstuvwxyz"
+LETTERS = "abcdefghijklmnopqrstuvwxyz'"
+
+
+def _is_valid_word(word: str) -> bool:
+    """Return True if token is alphabetic or contains internal apostrophes."""
+    cleaned = word.replace("'", "")
+    return bool(cleaned and cleaned.isalpha())
 
 # Path to the comprehensive 1.1M-token corpus if downloaded
 CORPUS_FILE_PATH = Path(__file__).resolve().parent / "data" / "big.txt"
@@ -295,12 +303,12 @@ class NoisyChannelSpellCorrector:
             raw_corpus = _load_initial_corpus()
             words = _tokenize(raw_corpus)
 
-        self.frequencies = Counter(word.lower() for word in words if word.isalpha())
+        self.frequencies = Counter(word.lower() for word in words if _is_valid_word(word))
         if not self.frequencies:
             raise ValueError("The corpus or vocabulary must contain at least one word.")
 
         # Build bigram transition model for contextual language modeling
-        tokens_lower = [w.lower() for w in words if w.isalpha()]
+        tokens_lower = [w.lower() for w in words if _is_valid_word(w)]
         self.bigrams = Counter(
             (tokens_lower[i], tokens_lower[i + 1])
             for i in range(len(tokens_lower) - 1)
@@ -327,7 +335,7 @@ class NoisyChannelSpellCorrector:
         else:
             tokens = list(text_or_words)
 
-        tokens_lower = [t.lower() for t in tokens if t.isalpha()]
+        tokens_lower = [t.lower() for t in tokens if _is_valid_word(t)]
         if not tokens_lower:
             return 0
 
@@ -360,7 +368,7 @@ class NoisyChannelSpellCorrector:
         """Return unique alphabetic tokens not present in the vocabulary."""
         return list(dict.fromkeys(
             token.lower() for token in _tokenize(text)
-            if token.isalpha() and token.lower() not in self.vocabulary
+            if _is_valid_word(token) and token.lower() not in self.vocabulary
         ))
 
     def _candidates(self, word: str) -> list[tuple[str, int]]:
