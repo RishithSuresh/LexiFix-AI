@@ -1,5 +1,9 @@
 /**
  * LexiFix AI — Modern Interactive Application Logic
+ * Colour Palette:
+ * 1. Eclipse Plum (#2B1C33) - 50%
+ * 2. Pebble Silk (#D9D3CC) - 30% (Prominently Integrated)
+ * 3. Amber Flare (#FF8C12) - 20%
  */
 
 // Application State
@@ -192,11 +196,11 @@ function bindEvents() {
       const mode = btn.dataset.mode;
       const group = btn.parentElement.querySelectorAll('.view-mode-btn');
       group.forEach(b => {
-        b.classList.remove('active', 'bg-slate-800', 'text-white');
-        b.classList.add('text-slate-400');
+        b.classList.remove('active', 'bg-[#FF8C12]', 'text-[#2B1C33]', 'font-bold');
+        b.classList.add('text-[#D9D3CC]');
       });
-      btn.classList.add('active', 'bg-slate-800', 'text-white');
-      btn.classList.remove('text-slate-400');
+      btn.classList.add('active', 'bg-[#FF8C12]', 'text-[#2B1C33]', 'font-bold');
+      btn.classList.remove('text-[#D9D3CC]');
       toggleCardViewMode(target, mode);
     }
 
@@ -267,10 +271,10 @@ function switchView(viewName) {
   dom.navButtons.forEach(btn => {
     const isActive = btn.dataset.nav === viewName;
     btn.classList.toggle('active', isActive);
-    btn.classList.toggle('bg-indigo-600/20', isActive);
-    btn.classList.toggle('text-indigo-300', isActive);
-    btn.classList.toggle('border-indigo-500/30', isActive);
-    btn.classList.toggle('text-slate-400', !isActive);
+    btn.classList.toggle('bg-[#FF8C12]/15', isActive);
+    btn.classList.toggle('text-[#FF8C12]', isActive);
+    btn.classList.toggle('border-[#FF8C12]/45', isActive);
+    btn.classList.toggle('text-[#D9D3CC]', !isActive);
   });
 
   Object.entries(dom.views).forEach(([name, el]) => {
@@ -330,11 +334,11 @@ function updateInputStats() {
     const unknowns = [...new Set(tokens.filter(t => !state.vocabulary.set.has(t.toLowerCase())))];
     if (unknowns.length > 0) {
       dom.detectedBadge.textContent = `${unknowns.length} error${unknowns.length > 1 ? 's' : ''} detected`;
-      dom.detectedBadge.className = 'px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30';
+      dom.detectedBadge.className = 'px-2 py-0.5 rounded-full bg-[#FF8C12]/20 text-[#FF8C12] text-[10px] font-mono border border-[#FF8C12]/40 font-bold';
       dom.liveDetectedPreview.textContent = `(${unknowns.slice(0, 3).join(', ')}${unknowns.length > 3 ? '...' : ''})`;
     } else {
       dom.detectedBadge.textContent = '0 errors detected';
-      dom.detectedBadge.className = 'px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/30';
+      dom.detectedBadge.className = 'px-2 py-0.5 rounded-full bg-[#D9D3CC]/15 text-[#D9D3CC] text-[10px] font-mono border border-[#D9D3CC]/30 font-semibold';
       dom.liveDetectedPreview.textContent = '';
     }
   }
@@ -412,15 +416,15 @@ function renderShimmerSkeletons(selectedModels) {
   dom.baselineOutputExplain.innerHTML = '';
 
   dom.llmCardsGrid.innerHTML = selectedModels.map(model => `
-    <div class="surface-card p-5 space-y-4 border-l-4 border-l-purple-500">
+    <div class="surface-card p-5 space-y-4 border border-[#D9D3CC]/25 border-l-4 border-l-[#FF8C12]">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <span class="w-3 h-3 rounded-full bg-purple-500 animate-pulse"></span>
-          <h3 class="font-bold text-sm tracking-wide text-white">${escapeHtml(model)}</h3>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">Processing...</span>
+          <span class="w-3 h-3 rounded-full bg-[#FF8C12] animate-pulse"></span>
+          <h3 class="font-bold text-sm tracking-wide text-[#D9D3CC]">${escapeHtml(model)}</h3>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FF8C12]/20 text-[#FF8C12] font-semibold border border-[#FF8C12]/30">Processing...</span>
         </div>
       </div>
-      <div class="p-4 bg-slate-950/70 rounded-xl border border-slate-800/80 space-y-2">
+      <div class="p-4 bg-[#1F1325] rounded-xl border border-[#D9D3CC]/25 space-y-2">
         <div class="skeleton h-4 w-5/6"></div>
         <div class="skeleton h-4 w-2/3"></div>
       </div>
@@ -436,29 +440,29 @@ function renderResults(data) {
   dom.baselineOutputDiff.innerHTML = generateTokenDiffHtml(original, baseline);
   dom.baselineOutputClean.textContent = baseline;
 
-  // 2. Baseline Explainability Chips
+  // 2. Baseline Explainability Chips prominently styled in Pebble Silk
   if (data.corrections && data.corrections.length > 0) {
     dom.baselineOutputExplain.innerHTML = `
       <div class="space-y-2">
-        <span class="text-xs font-semibold text-slate-400">Token-Level Diagnostic Breakdown:</span>
+        <span class="text-xs font-bold text-[#D9D3CC]">Token-Level Diagnostic Breakdown:</span>
         <div class="flex flex-wrap gap-2">
           ${data.corrections.map(c => `
             <div class="correction-pill" title="Edit distance: ${c.distance}, Confidence: ${(c.confidence * 100).toFixed(0)}%">
-              <span class="text-rose-400 line-through">${escapeHtml(c.original)}</span>
-              <span class="text-slate-500">→</span>
-              <span class="text-emerald-400 font-bold">${escapeHtml(c.corrected)}</span>
-              <span class="text-[10px] text-indigo-300 px-1 rounded bg-indigo-500/20">d=${c.distance}</span>
-              <span class="text-[10px] text-slate-400 font-mono">${(c.confidence * 100).toFixed(0)}%</span>
+              <span class="text-[#F87171] line-through">${escapeHtml(c.original)}</span>
+              <span class="text-[#D9D3CC]/60 font-bold">→</span>
+              <span class="text-[#FF8C12] font-bold">${escapeHtml(c.corrected)}</span>
+              <span class="text-[10px] text-[#D9D3CC] px-1.5 py-0.5 rounded bg-[#D9D3CC]/20 border border-[#D9D3CC]/30 font-bold">d=${c.distance}</span>
+              <span class="text-[10px] text-[#D9D3CC] font-mono">${(c.confidence * 100).toFixed(0)}%</span>
             </div>
           `).join('')}
         </div>
       </div>
     `;
   } else {
-    dom.baselineOutputExplain.innerHTML = `<span class="text-xs text-slate-400">No spelling modifications detected in vocabulary.</span>`;
+    dom.baselineOutputExplain.innerHTML = `<span class="text-xs text-[#D9D3CC]/80 font-medium">No spelling modifications detected in vocabulary.</span>`;
   }
 
-  // 3. Baseline Metrics
+  // 3. Baseline Metrics with Pebble Silk labels
   if (data.expected_text) {
     dom.baselineMetricsBar.classList.remove('hidden');
     dom.mBaselineAcc.textContent = `${(data.baseline_accuracy * 100).toFixed(1)}%`;
@@ -470,43 +474,43 @@ function renderResults(data) {
   }
   dom.baselineLatency.textContent = `Latency: ${data.baseline_latency_ms || 0}ms`;
 
-  // 4. Render LLM Output Cards
+  // 4. Render LLM Output Cards with Pebble Silk Framing & Amber Flare Accents
   if (data.llm_results && data.llm_results.length > 0) {
     dom.llmCardsGrid.innerHTML = data.llm_results.map((llm, idx) => {
       const isOk = llm.status === 'ok';
       const cardId = `llm-card-${idx}`;
       return `
-        <div id="${cardId}" class="surface-card p-5 space-y-4 border-l-4 border-l-purple-500">
+        <div id="${cardId}" class="surface-card p-5 space-y-4 border border-[#D9D3CC]/25 border-l-4 border-l-[#FF8C12]">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div class="flex items-center gap-2.5">
-              <span class="w-3 h-3 rounded-full ${isOk ? 'bg-purple-500 shadow shadow-purple-500/50' : 'bg-rose-500'}"></span>
-              <h3 class="font-bold text-sm tracking-wide text-white">${escapeHtml(llm.model)}</h3>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded ${isOk ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-rose-500/20 text-rose-300'}">
+              <span class="w-3 h-3 rounded-full ${isOk ? 'bg-[#FF8C12] shadow shadow-[#FF8C12]/50' : 'bg-rose-500'}"></span>
+              <h3 class="font-bold text-sm tracking-wide text-[#D9D3CC]">${escapeHtml(llm.model)}</h3>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded ${isOk ? 'bg-[#D9D3CC]/15 text-[#D9D3CC] border border-[#D9D3CC]/30 font-semibold' : 'bg-rose-500/20 text-rose-300'}">
                 ${isOk ? 'Transformer' : 'Error'}
               </span>
-              ${isOk ? `<span class="text-[10px] font-mono text-slate-500">${llm.latency_ms || 0}ms</span>` : ''}
+              ${isOk ? `<span class="text-[10px] font-mono text-[#D9D3CC] bg-[#D9D3CC]/10 px-2 py-0.5 rounded border border-[#D9D3CC]/20">${llm.latency_ms || 0}ms</span>` : ''}
             </div>
 
             ${isOk ? `
               <div class="flex items-center gap-2">
-                <div class="bg-slate-900 p-0.5 rounded-lg border border-slate-800 flex text-xs">
-                  <button class="view-mode-btn active px-2.5 py-1 rounded-md text-white bg-slate-800 font-medium" data-target="llm-${idx}" data-mode="diff">Visual Diff</button>
-                  <button class="view-mode-btn px-2.5 py-1 rounded-md text-slate-400 hover:text-white" data-target="llm-${idx}" data-mode="clean">Clean Text</button>
+                <div class="bg-[#221528] p-0.5 rounded-lg border border-[#D9D3CC]/30 flex text-xs">
+                  <button class="view-mode-btn active px-2.5 py-1 rounded-md text-[#2B1C33] bg-[#FF8C12] font-bold" data-target="llm-${idx}" data-mode="diff">Visual Diff</button>
+                  <button class="view-mode-btn px-2.5 py-1 rounded-md text-[#D9D3CC] hover:text-white" data-target="llm-${idx}" data-mode="clean">Clean Text</button>
                 </div>
 
-                <button class="btn-copy p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-colors" data-copy-target="llm-${idx}" title="Copy output">
+                <button class="btn-copy silk-btn p-1.5 rounded-lg text-[#D9D3CC] hover:text-[#FF8C12] transition-colors" data-copy-target="llm-${idx}" title="Copy output">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                 </button>
               </div>
             ` : ''}
           </div>
 
-          <div class="p-4 bg-slate-950/70 rounded-xl border border-slate-800/80 min-h-[64px]">
+          <div class="p-4 bg-[#1F1325] rounded-xl border border-[#D9D3CC]/25 min-h-[64px]">
             ${isOk ? `
-              <div id="llm-${idx}-output-diff" class="diff-container text-slate-200">
+              <div id="llm-${idx}-output-diff" class="diff-container text-[#D9D3CC]">
                 ${generateTokenDiffHtml(original, llm.text)}
               </div>
-              <div id="llm-${idx}-output-clean" class="hidden text-slate-200 text-sm font-sans leading-relaxed">${escapeHtml(llm.text)}</div>
+              <div id="llm-${idx}-output-clean" class="hidden text-[#D9D3CC] text-sm font-sans leading-relaxed">${escapeHtml(llm.text)}</div>
             ` : `
               <div class="text-rose-400 text-xs font-mono p-2 bg-rose-950/30 rounded border border-rose-900/50">
                 ${escapeHtml(llm.error || 'Failed to generate output from model')}
@@ -515,12 +519,12 @@ function renderResults(data) {
           </div>
 
           ${(isOk && data.expected_text) ? `
-            <div class="pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between text-xs text-slate-400 font-mono">
+            <div class="pt-2 border-t border-[#D9D3CC]/20 flex flex-wrap items-center justify-between text-xs text-[#D9D3CC] font-mono">
               <div class="flex items-center gap-4">
-                <span>Accuracy: <strong class="text-purple-300">${(llm.accuracy * 100).toFixed(1)}%</strong></span>
-                <span>Precision: <strong class="text-emerald-300">${llm.precision.toFixed(2)}</strong></span>
-                <span>Recall: <strong class="text-emerald-300">${llm.recall.toFixed(2)}</strong></span>
-                <span>F1 Score: <strong class="text-emerald-300">${llm.f1.toFixed(2)}</strong></span>
+                <span>Accuracy: <strong class="text-[#FF8C12]">${(llm.accuracy * 100).toFixed(1)}%</strong></span>
+                <span>Precision: <strong class="text-[#D9D3CC]">${llm.precision.toFixed(2)}</strong></span>
+                <span>Recall: <strong class="text-[#D9D3CC]">${llm.recall.toFixed(2)}</strong></span>
+                <span>F1 Score: <strong class="text-[#FF8C12]">${llm.f1.toFixed(2)}</strong></span>
               </div>
             </div>
           ` : ''}
@@ -589,7 +593,6 @@ function generateTokenDiffHtml(source, target) {
   const srcTokens = tokenize(source);
   const tgtTokens = tokenize(target);
 
-  // Simple and clean word substitution alignment
   let sIdx = 0;
   let tIdx = 0;
   let html = '';
@@ -607,11 +610,10 @@ function generateTokenDiffHtml(source, target) {
       html += `<span class="diff-del">${escapeHtml(s)}</span>`;
       sIdx++;
     } else if (!s && t) {
-      // Insertion
+      // Insertion in Amber Flare with Pebble Silk contrast
       html += `<span class="diff-ins">${escapeHtml(t)}</span>`;
       tIdx++;
     } else {
-      // Lookahead matching
       const nextMatchInTgt = tgtTokens.indexOf(s, tIdx);
       const nextMatchInSrc = srcTokens.indexOf(t, sIdx);
 
@@ -626,7 +628,6 @@ function generateTokenDiffHtml(source, target) {
           sIdx++;
         }
       } else {
-        // Direct substitution
         html += `<span class="diff-del">${escapeHtml(s)}</span><span class="diff-ins">${escapeHtml(t)}</span>`;
         sIdx++;
         tIdx++;
@@ -701,7 +702,7 @@ function updateKpiCards(data) {
     dom.kpiBaselineF1.textContent = '—';
   }
 
-  // Calculate Mean LLM F1 (check either llm_f1 or model_*_f1 columns)
+  // Calculate Mean LLM F1
   let llmCol = 'llm_f1';
   if (!data.headers.includes(llmCol)) {
     const candidate = data.headers.find(h => h.endsWith('_f1') && h !== 'baseline_f1');
@@ -733,7 +734,7 @@ function renderCsvTable() {
 
   if (headers.length === 0) {
     dom.benchmarkThead.innerHTML = `<tr><th>No Columns</th></tr>`;
-    dom.benchmarkTbody.innerHTML = `<tr><td class="text-center py-6 text-slate-500">Empty file</td></tr>`;
+    dom.benchmarkTbody.innerHTML = `<tr><td class="text-center py-6 text-[#D9D3CC]/60 font-medium">Empty file</td></tr>`;
     return;
   }
 
@@ -752,9 +753,9 @@ function renderCsvTable() {
     th.addEventListener('click', () => sortCsvByColumn(th.dataset.col));
   });
 
-  // Render Rows
+  // Render Rows in Pebble Silk
   if (rows.length === 0) {
-    dom.benchmarkTbody.innerHTML = `<tr><td colspan="${headers.length}" class="text-center py-8 text-slate-500">No matching cases found</td></tr>`;
+    dom.benchmarkTbody.innerHTML = `<tr><td colspan="${headers.length}" class="text-center py-8 text-[#D9D3CC]/70 font-medium">No matching cases found</td></tr>`;
     return;
   }
 
@@ -763,7 +764,7 @@ function renderCsvTable() {
       ${headers.map(h => {
         const val = row[h] || '';
         const isNumeric = !isNaN(parseFloat(val)) && isFinite(val);
-        return `<td class="${isNumeric ? 'font-mono text-indigo-300' : ''}" title="${escapeHtml(val)}">${escapeHtml(val)}</td>`;
+        return `<td class="${isNumeric ? 'font-mono text-[#FF8C12] font-semibold' : 'text-[#D9D3CC]'}" title="${escapeHtml(val)}">${escapeHtml(val)}</td>`;
       }).join('')}
     </tr>
   `).join('');
@@ -816,45 +817,45 @@ function inspectCsvRow(row) {
   dom.modalBodyContent.innerHTML = `
     <div class="space-y-4">
       <div>
-        <span class="text-slate-400 font-semibold uppercase tracking-wider block mb-1">Input Text:</span>
-        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 text-slate-100 font-sans text-sm">${escapeHtml(row.input_text || '—')}</div>
+        <span class="text-[#D9D3CC] font-bold uppercase tracking-wider block mb-1">Input Text:</span>
+        <div class="p-3 bg-[#1F1325] rounded-lg border border-[#D9D3CC]/30 text-[#D9D3CC] font-sans text-sm">${escapeHtml(row.input_text || '—')}</div>
       </div>
 
       ${row.expected_text ? `
         <div>
-          <span class="text-slate-400 font-semibold uppercase tracking-wider block mb-1">Expected Ground Truth:</span>
-          <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 text-emerald-300 font-sans text-sm">${escapeHtml(row.expected_text)}</div>
+          <span class="text-[#D9D3CC] font-bold uppercase tracking-wider block mb-1">Expected Ground Truth:</span>
+          <div class="p-3 bg-[#1F1325] rounded-lg border border-[#D9D3CC]/30 text-[#FF8C12] font-sans text-sm font-semibold">${escapeHtml(row.expected_text)}</div>
         </div>
       ` : ''}
 
       <div>
-        <span class="text-slate-400 font-semibold uppercase tracking-wider block mb-1">Baseline NLP Output:</span>
-        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 text-indigo-300 font-sans text-sm">${escapeHtml(row.baseline_text || '—')}</div>
-        <div class="mt-1 text-slate-400 font-mono text-[11px] flex gap-4">
-          <span>Accuracy: ${row.baseline_accuracy || '—'}</span>
-          <span>Precision: ${row.baseline_precision || '—'}</span>
-          <span>Recall: ${row.baseline_recall || '—'}</span>
-          <span>F1: ${row.baseline_f1 || '—'}</span>
+        <span class="text-[#D9D3CC] font-bold uppercase tracking-wider block mb-1">Baseline NLP Output:</span>
+        <div class="p-3 bg-[#1F1325] rounded-lg border border-[#D9D3CC]/30 text-[#D9D3CC] font-sans text-sm">${escapeHtml(row.baseline_text || '—')}</div>
+        <div class="mt-1 text-[#D9D3CC] font-mono text-[11px] flex gap-4">
+          <span>Accuracy: <strong class="text-[#FF8C12]">${row.baseline_accuracy || '—'}</strong></span>
+          <span>Precision: <strong class="text-[#D9D3CC]">${row.baseline_precision || '—'}</strong></span>
+          <span>Recall: <strong class="text-[#D9D3CC]">${row.baseline_recall || '—'}</strong></span>
+          <span>F1: <strong class="text-[#FF8C12]">${row.baseline_f1 || '—'}</strong></span>
         </div>
       </div>
 
       ${row.llm_text ? `
         <div>
-          <span class="text-slate-400 font-semibold uppercase tracking-wider block mb-1">LLM Output:</span>
-          <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 text-purple-300 font-sans text-sm whitespace-pre-wrap">${escapeHtml(row.llm_text)}</div>
-          <div class="mt-1 text-slate-400 font-mono text-[11px] flex gap-4">
-            <span>Accuracy: ${row.llm_accuracy || '—'}</span>
-            <span>Precision: ${row.llm_precision || '—'}</span>
-            <span>Recall: ${row.llm_recall || '—'}</span>
-            <span>F1: ${row.llm_f1 || '—'}</span>
+          <span class="text-[#D9D3CC] font-bold uppercase tracking-wider block mb-1">LLM Output:</span>
+          <div class="p-3 bg-[#1F1325] rounded-lg border border-[#D9D3CC]/30 text-[#D9D3CC] font-sans text-sm whitespace-pre-wrap">${escapeHtml(row.llm_text)}</div>
+          <div class="mt-1 text-[#D9D3CC] font-mono text-[11px] flex gap-4">
+            <span>Accuracy: <strong class="text-[#FF8C12]">${row.llm_accuracy || '—'}</strong></span>
+            <span>Precision: <strong class="text-[#D9D3CC]">${row.llm_precision || '—'}</strong></span>
+            <span>Recall: <strong class="text-[#D9D3CC]">${row.llm_recall || '—'}</strong></span>
+            <span>F1: <strong class="text-[#FF8C12]">${row.llm_f1 || '—'}</strong></span>
           </div>
         </div>
       ` : ''}
 
-      <div class="pt-2 border-t border-slate-800">
-        <span class="text-slate-400 font-semibold uppercase tracking-wider block mb-1">Raw Record Fields:</span>
-        <div class="max-h-48 overflow-y-auto bg-slate-950 rounded p-2 text-[11px] font-mono space-y-1">
-          ${Object.entries(row).map(([k, v]) => `<div><span class="text-slate-500">${escapeHtml(k)}:</span> <span class="text-slate-300">${escapeHtml(v)}</span></div>`).join('')}
+      <div class="pt-2 border-t border-[#D9D3CC]/25">
+        <span class="text-[#D9D3CC] font-bold uppercase tracking-wider block mb-1">Raw Record Fields:</span>
+        <div class="max-h-48 overflow-y-auto bg-[#1F1325] rounded p-2.5 text-[11px] font-mono space-y-1 border border-[#D9D3CC]/20">
+          ${Object.entries(row).map(([k, v]) => `<div><span class="text-[#C7BFB5] font-semibold">${escapeHtml(k)}:</span> <span class="text-[#D9D3CC]">${escapeHtml(v)}</span></div>`).join('')}
         </div>
       </div>
     </div>
@@ -900,8 +901,8 @@ async function startBatchEvaluation() {
     dom.batchProgressPct.textContent = '100%';
     dom.batchProgressStatus.textContent = 'Benchmark Finished!';
     dom.batchLogOutput.innerHTML += `
-      <div class="text-emerald-400">[${new Date().toLocaleTimeString()}] Done! Evaluated ${result.cases_count} cases.</div>
-      <div class="text-indigo-300">Saved to: ${result.output_file}</div>
+      <div class="text-[#FF8C12] font-bold">[${new Date().toLocaleTimeString()}] Done! Evaluated ${result.cases_count} cases.</div>
+      <div class="text-[#D9D3CC] font-semibold">Saved to: ${result.output_file}</div>
     `;
 
     showToast(`Batch completed! Saved to ${result.output_file}`, 'success');
@@ -928,19 +929,19 @@ async function explainWord(word) {
     const data = await res.json();
 
     dom.explainVocabStatus.textContent = data.in_vocabulary ? 'In Vocabulary (Valid)' : 'Out of Vocabulary (Misspelled)';
-    dom.explainVocabStatus.className = `text-xs font-mono px-2 py-0.5 rounded ${data.in_vocabulary ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`;
+    dom.explainVocabStatus.className = `text-xs font-mono px-2.5 py-0.5 rounded ${data.in_vocabulary ? 'bg-[#D9D3CC]/20 text-[#D9D3CC] border border-[#D9D3CC]/35 font-bold' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold'}`;
     dom.explainBestWord.textContent = data.corrected;
     dom.explainDistance.textContent = `d = ${data.distance}`;
     dom.explainConfidence.textContent = `${(data.confidence * 100).toFixed(0)}% (relative score)`;
 
     if (data.candidates && data.candidates.length > 0) {
       dom.explainCandidatesList.innerHTML = data.candidates.map(c => `
-        <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-mono">
-          ${escapeHtml(c.word)} <span class="text-indigo-400 text-[10px]">d=${c.distance}</span> <span class="text-slate-500 text-[10px]">f=${c.freq}</span>
+        <span class="px-2.5 py-1 rounded bg-[#D9D3CC]/12 border border-[#D9D3CC]/30 text-[#D9D3CC] font-mono">
+          ${escapeHtml(c.word)} <span class="text-[#FF8C12] text-[10px] font-bold">d=${c.distance}</span> <span class="text-[#D9D3CC]/70 text-[10px]">f=${c.freq}</span>
         </span>
       `).join('');
     } else {
-      dom.explainCandidatesList.innerHTML = `<span class="text-slate-500 italic">No candidates within distance threshold</span>`;
+      dom.explainCandidatesList.innerHTML = `<span class="text-[#D9D3CC]/60 italic">No candidates within distance threshold</span>`;
     }
   } catch (err) {
     console.error(err);
@@ -958,8 +959,8 @@ async function loadVocabularyStats() {
     dom.statCorpusTokens.textContent = `${data.tokens} tokens`;
 
     dom.topLexiconChips.innerHTML = data.top.slice(0, 40).map(item => `
-      <span class="px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 text-xs font-mono">
-        ${escapeHtml(item.word)} <span class="text-indigo-400 text-[10px]">(${item.freq})</span>
+      <span class="px-2.5 py-1 rounded-full bg-[#D9D3CC]/10 border border-[#D9D3CC]/25 text-[#D9D3CC] text-xs font-mono hover:bg-[#D9D3CC]/20 transition-colors">
+        ${escapeHtml(item.word)} <span class="text-[#FF8C12] text-[10px] font-bold">(${item.freq})</span>
       </span>
     `).join('');
 
